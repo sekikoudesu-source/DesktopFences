@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# PyInstaller
+build/
+*.spec
+
+# User specific data
+dist/data/
+dist/config.json
+dist/restore_map.json
+*.log
+inspect_out.txt
