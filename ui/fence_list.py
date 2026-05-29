@@ -26,9 +26,9 @@ class FenceListWidget(QListWidget):
 
     def apply_theme(self, theme):
         if theme == "cute":
-            color = "#ffb6c1"
-            selected_bg = "rgba(255, 182, 193, 80)"
-            hover_bg = "rgba(255, 182, 193, 40)"
+            color = "#a2d2ff"
+            selected_bg = "rgba(162, 210, 255, 80)"
+            hover_bg = "rgba(162, 210, 255, 40)"
             radius = "8px"
         elif theme == "pixel":
             color = "#00ff00"

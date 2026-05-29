@@ -136,7 +136,7 @@ class FenceWidget(QWidget):
         self.list_widget.apply_theme(theme)
         
         if theme == "cute":
-            self.label.setStyleSheet("color: #ffb6c1; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
+            self.label.setStyleSheet("color: #a2d2ff; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
         elif theme == "pixel":
             self.label.setStyleSheet("color: #00ff00; font-weight: bold; font-size: 16px; font-family: 'Courier New', monospace; background: transparent;")
         elif theme == "cyberpunk":
@@ -159,9 +159,9 @@ class FenceWidget(QWidget):
             """)
         elif theme == "cute":
             menu.setStyleSheet("""
-                QMenu { background-color: #fff0f5; color: #ff69b4; border: 1px solid #ffb6c1; border-radius: 5px; }
+                QMenu { background-color: #f0f8ff; color: #66b2ff; border: 1px solid #a2d2ff; border-radius: 5px; }
                 QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #ffe4e1; } 
+                QMenu::item:selected { background-color: #dbe9f4; } 
             """)
         else:
             menu.setStyleSheet("""
@@ -262,10 +262,10 @@ class FenceWidget(QWidget):
         
         if theme == "cute":
             grad = QLinearGradient(0, 0, rect.width(), rect.height())
-            grad.setColorAt(0.0, QColor(255, 182, 193, opacity + 20))
-            grad.setColorAt(1.0, QColor(255, 228, 225, opacity + 20))
+            grad.setColorAt(0.0, QColor(162, 210, 255, opacity + 20))
+            grad.setColorAt(1.0, QColor(210, 235, 255, opacity + 20))
             painter.setBrush(grad)
-            painter.setPen(QPen(QColor(255, 105, 180, 150), 2))
+            painter.setPen(QPen(QColor(130, 190, 255, 150), 2))
             painter.drawRoundedRect(rect, 15.0, 15.0)
         elif theme == "pixel":
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
