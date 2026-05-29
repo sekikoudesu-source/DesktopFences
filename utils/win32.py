@@ -49,16 +49,13 @@ def open_file_safely(file_path):
     file_path = os.path.normpath(file_path)
     if os.path.exists(file_path):
         try:
-            ext = os.path.splitext(file_path)[1].lower()
-            if ext in ('.lnk', '.url'):
-                # For shortcuts, let Windows use the shortcut's own working directory
-                working_dir = None
-            else:
-                working_dir = os.path.dirname(file_path)
-            win32api.ShellExecute(0, "open", file_path, None, working_dir, win32con.SW_SHOW)
+            # os.startfile properly delegates to Windows shell to launch
+            # the target with correct arguments and working directory.
+            os.startfile(file_path)
         except Exception:
-            # Fallback to standard os.startfile
+            # Fallback to ShellExecute if os.startfile fails
             try:
-                os.startfile(file_path)
+                working_dir = os.path.dirname(file_path)
+                win32api.ShellExecute(0, None, file_path, None, working_dir, win32con.SW_SHOW)
             except Exception:
                 pass
