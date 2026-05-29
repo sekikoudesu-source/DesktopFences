@@ -49,8 +49,12 @@ def open_file_safely(file_path):
     file_path = os.path.normpath(file_path)
     if os.path.exists(file_path):
         try:
-            # Set the working directory to the file's parent folder
-            working_dir = os.path.dirname(file_path)
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext in ('.lnk', '.url'):
+                # For shortcuts, let Windows use the shortcut's own working directory
+                working_dir = None
+            else:
+                working_dir = os.path.dirname(file_path)
             win32api.ShellExecute(0, "open", file_path, None, working_dir, win32con.SW_SHOW)
         except Exception:
             # Fallback to standard os.startfile
