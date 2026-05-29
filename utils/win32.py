@@ -46,16 +46,37 @@ def set_desktop_icons_visible(visible):
 
 
 def open_file_safely(file_path):
+    print(f"DEBUG [open_file_safely]: Attempting to open -> {file_path}")
     file_path = os.path.normpath(file_path)
-    if os.path.exists(file_path):
+    if not os.path.exists(file_path):
+        print(f"DEBUG [open_file_safely]: ERROR! File does not exist at path: {file_path}")
+        return
+
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    if ext in ('.lnk', '.url'):
+        # For shortcuts, Wechat and other Tencent apps block execution if the parent process is python.exe.
+        # Launching via explorer.exe ensures the parent process is the Windows shell itself,
+        # perfectly mirroring a user double-clicking on the desktop. It also avoids cmd.exe Unicode mangling.
         try:
-            # os.startfile properly delegates to Windows shell to launch
-            # the target with correct arguments and working directory.
-            os.startfile(file_path)
-        except Exception:
-            # Fallback to ShellExecute if os.startfile fails
-            try:
-                working_dir = os.path.dirname(file_path)
-                win32api.ShellExecute(0, None, file_path, None, working_dir, win32con.SW_SHOW)
-            except Exception:
-                pass
+            print(f"DEBUG [open_file_safely]: Using explorer to launch shortcut")
+            import subprocess
+            subprocess.Popen(["explorer", file_path])
+            return
+        except Exception as e:
+            print(f"DEBUG [open_file_safely]: explorer launch failed: {e}")
+
+    try:
+        print(f"DEBUG [open_file_safely]: Calling os.startfile('{file_path}')")
+        os.startfile(file_path)
+        print(f"DEBUG [open_file_safely]: os.startfile succeeded.")
+    except Exception as e:
+        print(f"DEBUG [open_file_safely]: os.startfile failed with exception: {e}")
+        # Ultimate fallback: simulate Windows shell execution exactly using explorer
+        try:
+            print(f"DEBUG [open_file_safely]: Fallback -> Calling explorer")
+            import subprocess
+            subprocess.Popen(["explorer", file_path])
+            print(f"DEBUG [open_file_safely]: explorer succeeded.")
+        except Exception as e2:
+            print(f"DEBUG [open_file_safely]: explorer failed with exception: {e2}")
