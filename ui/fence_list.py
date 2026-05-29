@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QSize, QFileInfo, QMimeData, QUrl
 from PyQt6.QtGui import QAction, QDrag, QIcon
 
 from core.config import save_restore_map, save_config
-from utils.win32 import robust_move
+from utils.win32 import robust_move, open_file_safely
 
 class FenceListWidget(QListWidget):
     def __init__(self, folder_path, parent=None):
@@ -55,7 +55,7 @@ class FenceListWidget(QListWidget):
         """)
         
         open_action = QAction("打开 (Open)", self)
-        open_action.triggered.connect(lambda: os.startfile(os.path.join(self.folder_path, item.toolTip())))
+        open_action.triggered.connect(lambda: open_file_safely(os.path.join(self.folder_path, item.toolTip())))
         menu.addAction(open_action)
         
         show_action = QAction("在文件夹中显示 (Show in Explorer)", self)

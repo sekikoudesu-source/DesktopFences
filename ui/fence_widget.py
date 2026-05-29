@@ -7,7 +7,7 @@ import random
 
 from core.config import DATA_DIR, save_config, save_restore_map
 from ui.fence_list import FenceListWidget
-from utils.win32 import robust_move
+from utils.win32 import robust_move, open_file_safely
 
 from collections import OrderedDict
 
@@ -197,8 +197,7 @@ class FenceWidget(QWidget):
                 
     def open_file(self, item):
         file_path = os.path.join(self.folder_path, item.toolTip())
-        if os.path.exists(file_path):
-            os.startfile(file_path)
+        open_file_safely(file_path)
 
     def paintEvent(self, event):
         painter = QPainter(self)
