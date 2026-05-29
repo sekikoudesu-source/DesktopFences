@@ -366,18 +366,18 @@ class FenceWidget(QWidget):
         sliver_size = 35
         
         self.snap_edge = None
-        if self.y() < margin:
+        if self.y() <= screen_geometry.top() + margin:
             self.snap_edge = 'top'
-            self.expanded_pos = QPoint(self.x(), 0)
-            self.animation.setEndValue(QPoint(self.x(), sliver_size - self.height()))
-        elif self.x() < margin:
+            self.expanded_pos = QPoint(self.x(), screen_geometry.top())
+            self.animation.setEndValue(QPoint(self.x(), screen_geometry.top() + sliver_size - self.height()))
+        elif self.x() <= screen_geometry.left() + margin:
             self.snap_edge = 'left'
-            self.expanded_pos = QPoint(0, self.y())
-            self.animation.setEndValue(QPoint(sliver_size - self.width(), self.y()))
-        elif self.x() + self.width() > screen_geometry.width() - margin:
+            self.expanded_pos = QPoint(screen_geometry.left(), self.y())
+            self.animation.setEndValue(QPoint(screen_geometry.left() + sliver_size - self.width(), self.y()))
+        elif self.x() + self.width() >= screen_geometry.right() - margin:
             self.snap_edge = 'right'
-            self.expanded_pos = QPoint(screen_geometry.width() - self.width(), self.y())
-            self.animation.setEndValue(QPoint(screen_geometry.width() - sliver_size, self.y()))
+            self.expanded_pos = QPoint(screen_geometry.right() - self.width() + 1, self.y())
+            self.animation.setEndValue(QPoint(screen_geometry.right() - sliver_size + 1, self.y()))
             
         if self.snap_edge:
             self.is_collapsed = True
