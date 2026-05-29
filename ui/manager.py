@@ -4,27 +4,55 @@ import shutil
 import uuid
 from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QFileDialog, QInputDialog, QMessageBox
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer, QFileSystemWatcher
 
-from core.config import load_config, save_config, load_restore_map, save_restore_map, DATA_DIR, BASE_DIR
+from core.config import load_config, save_config, load_restore_map, save_restore_map, DATA_DIR, BASE_DIR, RES_DIR, get_desktop_dir
 from core.categorization import guess_category
+from core.worker import MoveWorker
 from ui.fence_widget import FenceWidget
 from ui.settings import SettingsDialog
-from utils.win32 import set_window_bottom
+from utils.win32 import set_window_bottom, robust_move, set_desktop_icons_visible
 
 class FenceManager:
     def __init__(self, app):
         self.app = app
+        self.desktop_dir = get_desktop_dir()
         self.config = load_config()
         self.fences = []
         self.restore_map = load_restore_map()
         
+        # Check if we need to migrate from old physical move strategy
+        self.migrate_old_physical_strategy()
+        
+        # Setup Desktop File Watcher
+        self.desktop_watcher = QFileSystemWatcher([self.desktop_dir], self.app)
+        self.reconcile_timer = QTimer(self.app)
+        self.reconcile_timer.setSingleShot(True)
+        self.reconcile_timer.timeout.connect(self.reconcile_desktop_files)
+        self.desktop_watcher.directoryChanged.connect(lambda: self.reconcile_timer.start(200))
+        
+        # Perform initial sync
+        self.reconcile_desktop_files()
+        
+        # Apply Hide Desktop Icons setting if active
+        if self.config.get("hide_desktop_icons", False):
+            set_desktop_icons_visible(False)
+            
+        # Setup bottom alignment timer to keep fences below other windows on boot / Win+D
+        self.bottom_timer = QTimer(self.app)
+        self.bottom_timer.setInterval(2000)
+        self.bottom_timer.timeout.connect(self.keep_fences_at_bottom)
+        self.bottom_timer.start()
+        
         self.app.aboutToQuit.connect(self.on_quit)
         
         self.tray_icon = QSystemTrayIcon(self.app)
-        from PyQt6.QtWidgets import QStyle
-        icon = self.app.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)
-        self.tray_icon.setIcon(icon)
+        icon_path = os.path.join(RES_DIR, "app_icon.ico")
+        if os.path.exists(icon_path):
+            self.tray_icon.setIcon(QIcon(icon_path))
+        else:
+            from PyQt6.QtWidgets import QStyle
+            self.tray_icon.setIcon(self.app.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
         self.tray_icon.setToolTip("Fences V7 管理器")
         
         menu = QMenu()
@@ -38,6 +66,12 @@ class FenceManager:
         self.startup_action.setChecked(self.is_startup_enabled())
         self.startup_action.triggered.connect(self.toggle_startup)
         menu.addAction(self.startup_action)
+        
+        self.hide_icons_action = QAction("🕶️ 隐藏原生桌面图标", menu)
+        self.hide_icons_action.setCheckable(True)
+        self.hide_icons_action.setChecked(self.config.get("hide_desktop_icons", False))
+        self.hide_icons_action.triggered.connect(self.toggle_hide_desktop_icons)
+        menu.addAction(self.hide_icons_action)
         
         menu.addSeparator()
         
@@ -64,20 +98,138 @@ class FenceManager:
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.show()
         
-        self.restore_fences_on_startup()
         self.load_all_fences()
 
-    def restore_fences_on_startup(self):
-        for v_path, orig_path in list(self.restore_map.items()):
-            if os.path.exists(orig_path):
-                os.makedirs(os.path.dirname(v_path), exist_ok=True)
-                try:
-                    shutil.move(orig_path, v_path)
-                except Exception:
-                    pass
-            elif not os.path.exists(v_path):
-                del self.restore_map[v_path]
-        save_restore_map(self.restore_map)
+    def migrate_old_physical_strategy(self):
+        config_changed = False
+        for fc in self.config.get("fences", []):
+            if "is_virtual" not in fc:
+                # If the path is inside DATA_DIR, it's a virtual fence
+                is_virt = os.path.normpath(fc.get("path", "")).startswith(os.path.normpath(DATA_DIR)) or fc.get("path") == "virtual"
+                fc["is_virtual"] = is_virt
+                config_changed = True
+            if fc.get("is_virtual") and "files" not in fc:
+                fc["files"] = []
+                config_changed = True
+
+        if self.restore_map:
+            print("发现旧版本的物理整理映射表，正在进行迁移恢复...")
+            for v_path, orig_path in list(self.restore_map.items()):
+                filename = os.path.basename(orig_path)
+                parent_dir = os.path.dirname(v_path)
+                fence_id = os.path.basename(parent_dir)
+                
+                # Find the fence config
+                fence_config = next((fc for fc in self.config.get("fences", []) if fc["id"] == fence_id), None)
+                
+                # If the file is currently in DATA_DIR, move it back to desktop (orig_path)
+                if os.path.exists(v_path):
+                    try:
+                        os.makedirs(os.path.dirname(orig_path), exist_ok=True)
+                        robust_move(v_path, orig_path)
+                    except Exception as e:
+                        print(f"迁移恢复文件失败: {v_path} -> {orig_path}, 错误: {e}")
+                
+                # Associate the file with the virtual fence
+                if fence_config and fence_config.get("is_virtual"):
+                    if filename not in fence_config["files"]:
+                        fence_config["files"].append(filename)
+                        config_changed = True
+            
+            # Clear restore map since all files are now migrated back to desktop
+            self.restore_map = {}
+            save_restore_map(self.restore_map)
+            config_changed = True
+            
+            # Try to clean up DATA_DIR
+            try:
+                if os.path.exists(DATA_DIR):
+                    shutil.rmtree(DATA_DIR)
+            except Exception as e:
+                print(f"清理临时目录失败: {e}")
+                
+        if config_changed:
+            save_config(self.config)
+
+    def reconcile_desktop_files(self):
+        if not os.path.exists(self.desktop_dir):
+            return
+            
+        desktop_files = []
+        try:
+            for entry in os.scandir(self.desktop_dir):
+                name = entry.name
+                if name.lower() == "desktop.ini":
+                    continue
+                if name.startswith("~$"):
+                    continue
+                desktop_files.append(name)
+        except Exception as e:
+            print(f"扫描桌面文件失败: {e}")
+            return
+
+        registered_files = set()
+        unclassified_fence = None
+        config_changed = False
+        
+        # Reconcile files in virtual fences
+        for fc in self.config.get("fences", []):
+            if fc.get("is_virtual"):
+                if "files" not in fc:
+                    fc["files"] = []
+                    config_changed = True
+                
+                # Filter out files that no longer exist on the desktop
+                old_len = len(fc["files"])
+                fc["files"] = [f for f in fc["files"] if f in desktop_files]
+                if len(fc["files"]) != old_len:
+                    config_changed = True
+                    
+                registered_files.update(fc["files"])
+                
+                if fc.get("id") == "unclassified_fence" or fc.get("title") == "未分类 (Unclassified)":
+                    unclassified_fence = fc
+
+        # Find unregistered files on desktop
+        unregistered_files = [f for f in desktop_files if f not in registered_files]
+
+        if unregistered_files:
+            if not unclassified_fence:
+                # Create the default unclassified fence
+                unclassified_id = "unclassified_fence"
+                unclassified_fence = next((fc for fc in self.config.get("fences", []) if fc["id"] == unclassified_id), None)
+                if not unclassified_fence:
+                    count = len(self.fences)
+                    x = 50 + (count % 4) * 350
+                    y = 50 + (count // 4) * 450
+                    unclassified_fence = {
+                        "id": unclassified_id,
+                        "title": "未分类 (Unclassified)",
+                        "path": "virtual",
+                        "is_virtual": True,
+                        "files": [],
+                        "x": x,
+                        "y": y,
+                        "width": 320,
+                        "height": 400
+                    }
+                    self.config["fences"].append(unclassified_fence)
+                    self._spawn_fence_widget(unclassified_fence)
+                    config_changed = True
+            
+            # Add unregistered files to unclassified
+            for f in unregistered_files:
+                if f not in unclassified_fence["files"]:
+                    unclassified_fence["files"].append(f)
+                    config_changed = True
+
+        if config_changed:
+            save_config(self.config)
+
+        # Notify virtual fences to reload their UI
+        for fence in self.fences:
+            if getattr(fence, "is_virtual", False):
+                fence.load_files()
 
     def update_opacity(self, opacity):
         self.config["opacity"] = opacity
@@ -90,64 +242,48 @@ class FenceManager:
         dlg.exec()
         
     def on_quit(self):
-        for v_path, orig_path in list(self.restore_map.items()):
-            if os.path.exists(v_path):
-                os.makedirs(os.path.dirname(orig_path), exist_ok=True)
+        set_desktop_icons_visible(True)
+        save_config(self.config)
+        
+    def toggle_hide_desktop_icons(self, checked):
+        self.config["hide_desktop_icons"] = checked
+        save_config(self.config)
+        set_desktop_icons_visible(not checked)
+        
+    def keep_fences_at_bottom(self):
+        for fence in self.fences:
+            if fence.isVisible():
                 try:
-                    shutil.move(v_path, orig_path)
-                except Exception as e:
+                    hwnd = int(fence.winId())
+                    set_window_bottom(hwnd)
+                except Exception:
                     pass
-            else:
-                del self.restore_map[v_path]
-                
-        save_restore_map(self.restore_map)
         
     def auto_organize_desktop(self):
-        desktop_dir = os.path.join(os.path.expanduser("~"), "Desktop")
-        public_desktop_dir = r"C:\Users\Public\Desktop"
+        # 1. Reconcile first to make sure everything is up to date
+        self.reconcile_desktop_files()
         
-        mapped_paths = [os.path.normpath(fc["path"]) for fc in self.config["fences"]]
-        
-        files_to_move = []
-        folders_to_check_empty = set()
-        
-        def scan_dir(d):
-            for root, dirs, files in os.walk(d):
-                if os.path.normpath(root) == os.path.normpath(d):
-                    pass
-                else:
-                    if os.path.normpath(root) in mapped_paths:
-                        continue
-                    folders_to_check_empty.add(root)
-                    
-                for f in files:
-                    if f.lower() == "desktop.ini":
-                        continue
-                    path = os.path.join(root, f)
-                    if os.path.normpath(path) in mapped_paths:
-                        continue
-                    files_to_move.append((f, path))
-                    
-        if os.path.exists(desktop_dir): scan_dir(desktop_dir)
-        if os.path.exists(public_desktop_dir): scan_dir(public_desktop_dir)
-                
-        if not files_to_move:
-            QMessageBox.information(None, "提示", "桌面上已经没有可整理的散落文件或文件夹了！")
+        # 2. Get list of files in the "未分类" fence
+        unclassified_fence = next((fc for fc in self.config.get("fences", []) if fc["id"] == "unclassified_fence"), None)
+        if not unclassified_fence or not unclassified_fence.get("files"):
+            QMessageBox.information(None, "提示", "桌面上没有发现未分类的文件！")
             return
             
+        files_to_organize = list(unclassified_fence["files"])
+        
         categorized = {}
-        failed_moves = []
-        for f, path in files_to_move:
+        for f in files_to_organize:
             cat = guess_category(f)
-            categorized.setdefault(cat, []).append((f, path))
+            categorized.setdefault(cat, []).append(f)
+            
+        if not categorized:
+            return
             
         for cat_name, items in categorized.items():
-            fence_config = next((fc for fc in self.config["fences"] if fc["title"] == cat_name), None)
-            
+            # Find or create virtual fence for this category
+            fence_config = next((fc for fc in self.config.get("fences", []) if fc["title"] == cat_name), None)
             if not fence_config:
                 fence_id = str(uuid.uuid4())
-                folder_path = os.path.join(DATA_DIR, fence_id)
-                os.makedirs(folder_path, exist_ok=True)
                 
                 count = len(self.fences)
                 x = 50 + (count % 4) * 350
@@ -156,7 +292,9 @@ class FenceManager:
                 fence_config = {
                     "id": fence_id,
                     "title": cat_name,
-                    "path": folder_path,
+                    "path": "virtual",
+                    "is_virtual": True,
+                    "files": [],
                     "x": x,
                     "y": y,
                     "width": 320,
@@ -165,40 +303,28 @@ class FenceManager:
                 self.config["fences"].append(fence_config)
                 self._spawn_fence_widget(fence_config)
             
-            dest_dir = fence_config["path"]
-            for f, orig_path in items:
-                dest_path = os.path.join(dest_dir, f)
-                base, ext = os.path.splitext(f)
-                counter = 1
-                while os.path.exists(dest_path):
-                    dest_path = os.path.join(dest_dir, f"{base}_{counter}{ext}")
-                    counter += 1
+            # Add items to the target fence and remove from unclassified
+            for f in items:
+                if f not in fence_config["files"]:
+                    fence_config["files"].append(f)
+                if f in unclassified_fence["files"]:
+                    unclassified_fence["files"].remove(f)
                     
-                try:
-                    shutil.move(orig_path, dest_path)
-                    self.restore_map[dest_path] = orig_path
-                except Exception as e:
-                    failed_moves.append(orig_path)
-                    
-        save_restore_map(self.restore_map)
+        # Save config
         save_config(self.config)
         
-        for folder in sorted(list(folders_to_check_empty), key=len, reverse=True):
-            try:
-                if not os.listdir(folder):
-                    os.rmdir(folder)
-            except:
-                pass
-        
-        if failed_moves:
-            msg = f"🎉 整理完成，但有 {len(failed_moves)} 个系统权限文件未能移动。\n\n解决办法：请关闭程序后，以【管理员身份】运行代码或终端即可。"
-            QMessageBox.warning(None, "部分完成", msg)
-        else:
-            QMessageBox.information(None, "完成", "🎉 桌面一键深度拆解整理完成！关闭程序时将自动还原。")
+        # Trigger reload of all virtual fences
+        for fence in self.fences:
+            if getattr(fence, "is_virtual", False):
+                fence.load_files()
+                
+        QMessageBox.information(None, "完成", "🎉 桌面一键深度拆解整理完成！")
 
     def load_all_fences(self):
-        for fc in self.config["fences"]:
-            self._spawn_fence_widget(fc)
+        spawned_ids = {f.fence_id for f in self.fences}
+        for fc in self.config.get("fences", []):
+            if fc["id"] not in spawned_ids:
+                self._spawn_fence_widget(fc)
             
     def is_startup_enabled(self):
         try:
@@ -243,13 +369,12 @@ class FenceManager:
         title, ok = QInputDialog.getText(None, "虚拟收纳盒", "请输入收纳盒名称:")
         if ok and title:
             fence_id = str(uuid.uuid4())
-            folder_path = os.path.join(DATA_DIR, fence_id)
-            os.makedirs(folder_path, exist_ok=True)
-            
             fc = {
                 "id": fence_id,
                 "title": f"📦 {title}",
-                "path": folder_path,
+                "path": "virtual",
+                "is_virtual": True,
+                "files": [],
                 "x": 300,
                 "y": 300,
                 "width": 320,
@@ -267,6 +392,7 @@ class FenceManager:
                 "id": str(uuid.uuid4()),
                 "title": title,
                 "path": folder,
+                "is_virtual": False,
                 "x": 350,
                 "y": 350,
                 "width": 320,

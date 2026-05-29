@@ -4,12 +4,27 @@ import json
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
+    RES_DIR = getattr(sys, '_MEIPASS', BASE_DIR)
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    RES_DIR = BASE_DIR
 
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 RESTORE_MAP_FILE = os.path.join(BASE_DIR, "restore_map.json")
+
+def get_desktop_dir():
+    if os.name == 'nt':
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders")
+            path, _ = winreg.QueryValueEx(key, "Desktop")
+            winreg.CloseKey(key)
+            return os.path.expandvars(path)
+        except Exception:
+            pass
+    return os.path.join(os.path.expanduser("~"), "Desktop")
+
 
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)

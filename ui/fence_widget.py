@@ -1,13 +1,30 @@
 import os
 import shutil
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QMessageBox, QListWidgetItem, QFileIconProvider
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QFileInfo, QTimer
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QFileInfo, QTimer, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QAction, QIcon
+import random
 
 from core.config import DATA_DIR, save_config, save_restore_map
 from ui.fence_list import FenceListWidget
+from utils.win32 import robust_move
 
-ICON_CACHE = {}
+from collections import OrderedDict
+
+ICON_CACHE = OrderedDict()
+MAX_CACHE_SIZE = 500
+
+class Particle:
+    def __init__(self, x, y, vx, vy, life, color, size):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.life = life
+        self.max_life = life
+        self.color = color
+        self.size = size
+
 
 def get_icon_for_file(file_path, provider):
     ext = os.path.splitext(file_path)[1].lower()
@@ -16,7 +33,10 @@ def get_icon_for_file(file_path, provider):
     cache_key = file_path if is_unique else ext
 
     if cache_key in ICON_CACHE:
-        return ICON_CACHE[cache_key]
+        # Move to end to mark as most recently used
+        icon = ICON_CACHE.pop(cache_key)
+        ICON_CACHE[cache_key] = icon
+        return icon
 
     icon = None
     if ext == ".url":
@@ -34,6 +54,9 @@ def get_icon_for_file(file_path, provider):
     if not icon:
         icon = provider.icon(QFileInfo(file_path))
         
+    if len(ICON_CACHE) >= MAX_CACHE_SIZE:
+        ICON_CACHE.popitem(last=False)
+        
     ICON_CACHE[cache_key] = icon
     return icon
 
@@ -43,10 +66,13 @@ class FenceWidget(QWidget):
         self.manager = manager
         self.fence_id = fence_config["id"]
         self.title = fence_config["title"]
-        self.folder_path = fence_config["path"]
-        
-        if not os.path.exists(self.folder_path):
-            os.makedirs(self.folder_path, exist_ok=True)
+        self.is_virtual = fence_config.get("is_virtual", False)
+        if self.is_virtual:
+            self.folder_path = self.manager.desktop_dir
+        else:
+            self.folder_path = fence_config["path"]
+            if not os.path.exists(self.folder_path):
+                os.makedirs(self.folder_path, exist_ok=True)
         
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | 
@@ -74,12 +100,13 @@ class FenceWidget(QWidget):
         
         self.load_files()
         
-        from PyQt6.QtCore import QFileSystemWatcher
-        self.watcher = QFileSystemWatcher([self.folder_path])
-        self.reload_timer = QTimer(self)
-        self.reload_timer.setSingleShot(True)
-        self.reload_timer.timeout.connect(self.load_files)
-        self.watcher.directoryChanged.connect(lambda: self.reload_timer.start(100))
+        if not self.is_virtual:
+            from PyQt6.QtCore import QFileSystemWatcher
+            self.watcher = QFileSystemWatcher([self.folder_path])
+            self.reload_timer = QTimer(self)
+            self.reload_timer.setSingleShot(True)
+            self.reload_timer.timeout.connect(self.load_files)
+            self.watcher.directoryChanged.connect(lambda: self.reload_timer.start(100))
 
         self._is_tracking = False
         self._start_pos = None
@@ -87,6 +114,10 @@ class FenceWidget(QWidget):
         self._resize_edges = ""
         self._resize_start_geometry = None
         self._is_menu_open = False
+
+        self.particles = []
+        self.particle_timer = QTimer(self)
+        self.particle_timer.timeout.connect(self.update_particles)
 
         self.animation = QPropertyAnimation(self, b"pos")
         self.animation.setDuration(300)
@@ -108,49 +139,26 @@ class FenceWidget(QWidget):
         menu.exec(self.label.mapToGlobal(pos))
         
     def destroy_fence(self):
-        reply = QMessageBox.question(self, "确认解散", f"确定要解散【{self.title}】吗？\n隐式收纳盒内的文件将被退回桌面或原处！", 
+        reply = QMessageBox.question(self, "确认解散", f"确定要解散【{self.title}】吗？\n收纳盒内的文件将保持在桌面上原有位置！", 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply != QMessageBox.StandardButton.Yes: return
-            
-        is_virtual = os.path.normpath(self.folder_path).startswith(os.path.normpath(DATA_DIR))
         
-        if is_virtual:
-            desktop_dir = os.path.join(os.path.expanduser("~"), "Desktop")
-            if os.path.exists(self.folder_path):
-                for filename in os.listdir(self.folder_path):
-                    file_path = os.path.join(self.folder_path, filename)
-                    if not os.path.isfile(file_path): continue
-                    
-                    orig_path = self.manager.restore_map.get(file_path)
-                    if orig_path:
-                        dest = orig_path
-                        os.makedirs(os.path.dirname(dest), exist_ok=True)
-                        del self.manager.restore_map[file_path]
-                    else:
-                        dest = os.path.join(desktop_dir, filename)
-                        
-                    base, ext = os.path.splitext(os.path.basename(dest))
-                    dest_dir_name = os.path.dirname(dest)
-                    counter = 1
-                    while os.path.exists(dest):
-                        dest = os.path.join(dest_dir_name, f"{base}_{counter}{ext}")
-                        counter += 1
-                        
-                    try:
-                        shutil.move(file_path, dest)
-                    except:
-                        pass
-                try:
-                    shutil.rmtree(self.folder_path)
-                except:
-                    pass
-                save_restore_map(self.manager.restore_map)
-                
+        self.set_content_visible(False)
+        self.label.setVisible(False)
+        self.list_widget.setVisible(False)
+        self.emit_fireworks()
+        QTimer.singleShot(1500, self._execute_destroy)
+            
+    def _execute_destroy(self):
         self.manager.config["fences"] = [f for f in self.manager.config["fences"] if f["id"] != self.fence_id]
         save_config(self.manager.config)
         
         if self in self.manager.fences:
             self.manager.fences.remove(self)
+            
+        # Reconcile to assign files to unclassified fence
+        self.manager.reconcile_desktop_files()
+        
         self.close()
         self.deleteLater()
 
@@ -161,10 +169,22 @@ class FenceWidget(QWidget):
         provider = QFileIconProvider()
         fm = self.list_widget.fontMetrics()
         
-        for filename in os.listdir(self.folder_path):
+        if self.is_virtual:
+            fence_config = next((fc for fc in self.manager.config["fences"] if fc["id"] == self.fence_id), None)
+            filenames = fence_config.get("files", []) if fence_config else []
+        else:
+            try:
+                filenames = os.listdir(self.folder_path)
+            except Exception:
+                filenames = []
+        
+        for filename in filenames:
             if filename.lower() == "desktop.ini": continue
+            if filename.startswith("~$"): continue
                 
             file_path = os.path.join(self.folder_path, filename)
+            if not os.path.exists(file_path): continue
+            
             icon = get_icon_for_file(file_path, provider)
             
             display_name = os.path.splitext(filename)[0]
@@ -211,6 +231,16 @@ class FenceWidget(QWidget):
                 painter.save()
                 painter.drawText(15, self.height() - 12, self.title)
                 painter.restore()
+
+        for p in self.particles:
+            alpha = int((p.life / p.max_life) * p.color.alpha())
+            c = QColor(p.color)
+            c.setAlpha(alpha)
+            painter.setBrush(c)
+            painter.setPen(Qt.PenStyle.NoPen)
+            current_size = max(1.0, p.size * (p.life / p.max_life))
+            painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
+
 
     def get_resize_edges(self, pos):
         margin = 12
@@ -271,6 +301,9 @@ class FenceWidget(QWidget):
         if self._is_tracking:
             self.move(event.globalPosition().toPoint() - self._start_pos)
             return
+
+        if not self.is_collapsed and not self._is_resizing and random.random() < 0.3:
+            self.emit_stardust(event.pos())
 
         edges = self.get_resize_edges(event.pos())
         self.update_cursor(edges)
@@ -352,3 +385,62 @@ class FenceWidget(QWidget):
             self.set_content_visible(False)
             self.animation.start()
             self.update()
+
+    def update_particles(self):
+        if not self.particles:
+            self.particle_timer.stop()
+            return
+            
+        i = 0
+        while i < len(self.particles):
+            p = self.particles[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.life -= 1
+            p.vy += 0.2
+            if p.life <= 0:
+                # O(1) in-place deletion to prevent GC pressure
+                self.particles[i] = self.particles[-1]
+                self.particles.pop()
+            else:
+                i += 1
+                
+        self.update()
+
+    def emit_stardust(self, pos):
+        for _ in range(2):
+            vx = random.uniform(-0.5, 0.5)
+            vy = random.uniform(-1.5, 0.5)
+            life = random.randint(20, 50)
+            color = QColor(255, 255, 255, random.randint(100, 200))
+            size = random.uniform(1.5, 3.5)
+            self.particles.append(Particle(pos.x(), pos.y(), vx, vy, life, color, size))
+        if not self.particle_timer.isActive():
+            self.particle_timer.start(16)
+
+    def emit_blackhole(self, pos):
+        for _ in range(40):
+            vx = random.uniform(-6, 6)
+            vy = random.uniform(-6, 6)
+            life = random.randint(30, 50)
+            color = QColor(0, 200, 255, random.randint(150, 255))
+            size = random.uniform(2, 5)
+            self.particles.append(Particle(pos.x(), pos.y(), vx, vy, life, color, size))
+        if not self.particle_timer.isActive():
+            self.particle_timer.start(16)
+
+    def emit_fireworks(self):
+        cx = self.width() / 2
+        cy = self.height() / 2
+        for _ in range(150):
+            vx = random.uniform(-12, 12)
+            vy = random.uniform(-12, 12)
+            life = random.randint(40, 80)
+            red = random.randint(200, 255)
+            green = random.randint(100, 200)
+            color = QColor(red, green, 0, 255)
+            size = random.uniform(3, 7)
+            self.particles.append(Particle(cx, cy, vx, vy, life, color, size))
+        if not self.particle_timer.isActive():
+            self.particle_timer.start(16)
+

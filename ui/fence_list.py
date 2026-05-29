@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QAbstractItemView, QMe
 from PyQt6.QtCore import Qt, QSize, QFileInfo, QMimeData, QUrl
 from PyQt6.QtGui import QAction, QDrag, QIcon
 
-from core.config import save_restore_map
+from core.config import save_restore_map, save_config
+from utils.win32 import robust_move
 
 class FenceListWidget(QListWidget):
     def __init__(self, folder_path, parent=None):
@@ -86,21 +87,48 @@ class FenceListWidget(QListWidget):
             old_path = os.path.join(self.folder_path, old_name)
             new_path = os.path.join(self.folder_path, new_name)
             try:
-                os.rename(old_path, new_path)
+                if os.path.isdir(old_path):
+                    shutil.move(old_path, new_path)
+                else:
+                    os.rename(old_path, new_path)
+                
+                parent_widget = self.parent()
+                if getattr(parent_widget, "is_virtual", False):
+                    manager = parent_widget.manager
+                    fence_config = next((fc for fc in manager.config["fences"] if fc["id"] == parent_widget.fence_id), None)
+                    if fence_config and "files" in fence_config:
+                        if old_name in fence_config["files"]:
+                            idx = fence_config["files"].index(old_name)
+                            fence_config["files"][idx] = new_name
+                        save_config(manager.config)
+                    parent_widget.load_files()
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"重命名失败:\n{e}")
 
     def delete_item(self, item):
-        file_path = os.path.join(self.folder_path, item.toolTip())
-        reply = QMessageBox.question(self, "确认删除", f"确定要永久删除文件 {item.toolTip()} 吗？\n(此操作将直接删除文件)", 
+        filename = item.toolTip()
+        file_path = os.path.join(self.folder_path, filename)
+        is_dir = os.path.isdir(file_path)
+        type_str = "文件夹" if is_dir else "文件"
+        
+        reply = QMessageBox.question(self, "确认删除", f"确定要永久删除{type_str} {filename} 吗？\n(此操作将直接删除该{type_str})", 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                os.remove(file_path)
-                manager = self.parent().manager
-                if file_path in manager.restore_map:
-                    del manager.restore_map[file_path]
-                    save_restore_map(manager.restore_map)
+                if is_dir:
+                    shutil.rmtree(file_path)
+                else:
+                    os.remove(file_path)
+                
+                parent_widget = self.parent()
+                if getattr(parent_widget, "is_virtual", False):
+                    manager = parent_widget.manager
+                    fence_config = next((fc for fc in manager.config["fences"] if fc["id"] == parent_widget.fence_id), None)
+                    if fence_config and "files" in fence_config:
+                        if filename in fence_config["files"]:
+                            fence_config["files"].remove(filename)
+                        save_config(manager.config)
+                    parent_widget.load_files()
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"删除失败:\n{e}")
 
@@ -127,26 +155,121 @@ class FenceListWidget(QListWidget):
     def dragMoveEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-
     def dropEvent(self, event):
+        parent_widget = self.parent()
+        manager = parent_widget.manager
+        target_is_virtual = getattr(parent_widget, "is_virtual", False)
+        target_fence_id = parent_widget.fence_id
+        
+        move_tasks = []
+        config_changed = False
+        
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
-            if os.path.isfile(file_path) or os.path.isdir(file_path):
-                if os.path.dirname(os.path.normpath(file_path)) == os.path.normpath(self.folder_path):
-                    continue
-                try:
-                    dest_path = os.path.join(self.folder_path, os.path.basename(file_path))
-                    base, ext = os.path.splitext(os.path.basename(file_path))
+            if not (os.path.isfile(file_path) or os.path.isdir(file_path)):
+                continue
+                
+            filename = os.path.basename(file_path)
+            
+            # Check if this file is currently in a virtual fence
+            source_fence = None
+            for fc in manager.config.get("fences", []):
+                if fc.get("is_virtual") and filename in fc.get("files", []):
+                    source_fence = fc
+                    break
+                    
+            if target_is_virtual:
+                # Target is Virtual Fence
+                if source_fence:
+                    # Source is Virtual, Target is Virtual: Pure virtual transfer!
+                    if source_fence["id"] != target_fence_id:
+                        if filename in source_fence["files"]:
+                            source_fence["files"].remove(filename)
+                        
+                        # Find target config
+                        target_config = next((fc for fc in manager.config["fences"] if fc["id"] == target_fence_id), None)
+                        if target_config:
+                            if "files" not in target_config:
+                                target_config["files"] = []
+                            if filename not in target_config["files"]:
+                                target_config["files"].append(filename)
+                        config_changed = True
+                else:
+                    # Source is Portal or External: Must physically move to Desktop directory
+                    dest_path = os.path.join(self.folder_path, filename)
+                    base, ext = os.path.splitext(filename)
                     counter = 1
                     while os.path.exists(dest_path):
                         dest_path = os.path.join(self.folder_path, f"{base}_{counter}{ext}")
                         counter += 1
-                        
-                    shutil.move(file_path, dest_path)
-                    
-                    manager = self.parent().manager
-                    manager.restore_map[dest_path] = file_path
-                    save_restore_map(manager.restore_map)
-                except Exception as e:
-                    print(f"Failed to move {file_path}: {e}")
+                    move_tasks.append((file_path, dest_path))
+            else:
+                # Target is Portal Fence
+                if os.path.dirname(os.path.normpath(file_path)) == os.path.normpath(self.folder_path):
+                    continue
+                dest_path = os.path.join(self.folder_path, filename)
+                base, ext = os.path.splitext(filename)
+                counter = 1
+                while os.path.exists(dest_path):
+                    dest_path = os.path.join(self.folder_path, f"{base}_{counter}{ext}")
+                    counter += 1
+                move_tasks.append((file_path, dest_path))
+
+        # Save config if virtual-to-virtual transfers occurred
+        if config_changed:
+            save_config(manager.config)
+            # Reload all virtual fences
+            for f in manager.fences:
+                if getattr(f, "is_virtual", False):
+                    f.load_files()
+
+        # Handle physical moves asynchronously
+        if move_tasks:
+            from core.worker import MoveWorker
+            self.drop_worker = MoveWorker(move_tasks, parent=self)
+            self.drop_worker.finished_move.connect(
+                lambda success_map, failed_list: self._on_drop_finished(success_map, failed_list, target_is_virtual, target_fence_id)
+            )
+            self.drop_worker.start()
+            
+        # Trigger blackhole effect!
+        if hasattr(parent_widget, 'emit_blackhole'):
+            parent_widget.emit_blackhole(event.position().toPoint())
+            
         event.acceptProposedAction()
+
+    def _on_drop_finished(self, success_map, failed_list, target_is_virtual, target_fence_id):
+        if not success_map:
+            return
+            
+        parent_widget = self.parent()
+        manager = parent_widget.manager
+        config_changed = False
+        
+        for dest_path, orig_path in success_map.items():
+            dest_name = os.path.basename(dest_path)
+            orig_name = os.path.basename(orig_path)
+            
+            # Clean up from any source virtual fence
+            for fc in manager.config.get("fences", []):
+                if fc.get("is_virtual") and orig_name in fc.get("files", []):
+                    fc["files"].remove(orig_name)
+                    config_changed = True
+            
+            # Register in target virtual fence
+            if target_is_virtual:
+                target_config = next((fc for fc in manager.config["fences"] if fc["id"] == target_fence_id), None)
+                if target_config:
+                    if "files" not in target_config:
+                        target_config["files"] = []
+                    if dest_name not in target_config["files"]:
+                        target_config["files"].append(dest_name)
+                        config_changed = True
+                        
+        if config_changed:
+            save_config(manager.config)
+            
+        # Reload virtual fences
+        for f in manager.fences:
+            if getattr(f, "is_virtual", False):
+                f.load_files()
