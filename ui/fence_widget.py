@@ -89,7 +89,6 @@ class FenceWidget(QWidget):
         layout.setContentsMargins(15, 15, 15, 15)
         
         self.label = QLabel(self.title, self)
-        self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
         
         self._drag_timer = QTimer(self)
         self._drag_timer.setSingleShot(True)
@@ -101,6 +100,8 @@ class FenceWidget(QWidget):
         self.list_widget = FenceListWidget(self.folder_path, self)
         self.list_widget.itemDoubleClicked.connect(self.open_file)
         layout.addWidget(self.list_widget)
+        
+        self.apply_theme()
         
         self.load_files()
         
@@ -130,13 +131,60 @@ class FenceWidget(QWidget):
         self.snap_edge = None
         self.expanded_pos = self.pos()
 
+    def apply_theme(self):
+        theme = self.manager.config.get("theme", "default")
+        self.list_widget.apply_theme(theme)
+        
+        if theme == "cute":
+            self.label.setStyleSheet("color: #ffb6c1; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
+        elif theme == "pixel":
+            self.label.setStyleSheet("color: #00ff00; font-weight: bold; font-size: 16px; font-family: 'Courier New', monospace; background: transparent;")
+        elif theme == "cyberpunk":
+            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
+        elif theme == "line":
+            self.label.setStyleSheet("color: white; font-weight: normal; font-size: 16px; font-family: 'Segoe UI Light', sans-serif; background: transparent;")
+        else:
+            self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
+            
+        self.update()
+
     def show_title_context_menu(self, pos):
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu { background-color: #2c2c2c; color: white; border: 1px solid #555; }
-            QMenu::item { padding: 5px 20px; }
-            QMenu::item:selected { background-color: #d73a49; } 
-        """)
+        theme = self.manager.config.get("theme", "default")
+        if theme in ("pixel", "cyberpunk"):
+            menu.setStyleSheet("""
+                QMenu { background-color: #000; color: #00ff00; border: 1px solid #00ff00; font-family: 'Courier New'; }
+                QMenu::item { padding: 5px 20px; }
+                QMenu::item:selected { background-color: #003300; } 
+            """)
+        elif theme == "cute":
+            menu.setStyleSheet("""
+                QMenu { background-color: #fff0f5; color: #ff69b4; border: 1px solid #ffb6c1; border-radius: 5px; }
+                QMenu::item { padding: 5px 20px; }
+                QMenu::item:selected { background-color: #ffe4e1; } 
+            """)
+        else:
+            menu.setStyleSheet("""
+                QMenu { background-color: #2c2c2c; color: white; border: 1px solid #555; }
+                QMenu::item { padding: 5px 20px; }
+                QMenu::item:selected { background-color: #d73a49; } 
+            """)
+            
+        theme_menu = menu.addMenu("🎨 切换主题 (Themes)")
+        themes = {
+            "default": "默认风格 (Glassmorphism)",
+            "cute": "可爱风 (Cute)",
+            "pixel": "像素风 (Pixel Art)",
+            "cyberpunk": "赛博朋克 (Cyberpunk)",
+            "line": "极简线条 (Line Art)"
+        }
+        for t_key, t_name in themes.items():
+            act = theme_menu.addAction(t_name)
+            act.setCheckable(True)
+            if theme == t_key:
+                act.setChecked(True)
+            act.triggered.connect(lambda checked, k=t_key: self.manager.change_global_theme(k))
+            
         del_action = QAction("❌ 解散收纳盒 (Destroy)", self)
         del_action.triggered.connect(self.destroy_fence)
         menu.addAction(del_action)
@@ -204,12 +252,42 @@ class FenceWidget(QWidget):
         open_file_safely(file_path)
 
     def paintEvent(self, event):
+        from PyQt6.QtGui import QPainter, QColor, QPen, QLinearGradient
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        theme = self.manager.config.get("theme", "default")
         opacity = self.manager.config.get("opacity", 64)
-        painter.setBrush(QColor(0, 0, 0, opacity))
-        painter.setPen(QPen(QColor(255, 255, 255, 100), 1))
-        painter.drawRoundedRect(self.rect(), 10.0, 10.0)
+        rect = self.rect()
+        
+        if theme == "cute":
+            grad = QLinearGradient(0, 0, rect.width(), rect.height())
+            grad.setColorAt(0.0, QColor(255, 182, 193, opacity + 20))
+            grad.setColorAt(1.0, QColor(255, 228, 225, opacity + 20))
+            painter.setBrush(grad)
+            painter.setPen(QPen(QColor(255, 105, 180, 150), 2))
+            painter.drawRoundedRect(rect, 15.0, 15.0)
+        elif theme == "pixel":
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            painter.setBrush(QColor(0, 0, 0, opacity + 40))
+            painter.setPen(QPen(QColor(0, 255, 0, 200), 2))
+            painter.drawRect(rect.adjusted(1, 1, -1, -1))
+        elif theme == "cyberpunk":
+            painter.setBrush(QColor(10, 10, 15, opacity + 60))
+            painter.setPen(QPen(QColor(0, 255, 255, 255), 2))
+            painter.drawRect(rect.adjusted(1, 1, -1, -1))
+            # Draw cyberpunk accents
+            painter.setPen(QPen(QColor(255, 0, 255, 200), 2))
+            painter.drawLine(rect.left(), rect.top() + 20, rect.left(), rect.top() + 60)
+            painter.drawLine(rect.right(), rect.bottom() - 60, rect.right(), rect.bottom() - 20)
+        elif theme == "line":
+            painter.setBrush(QColor(0, 0, 0, opacity // 2))
+            painter.setPen(QPen(QColor(255, 255, 255, 180), 1))
+            painter.drawRect(rect.adjusted(0, 0, -1, -1))
+        else: # default
+            painter.setBrush(QColor(0, 0, 0, opacity))
+            painter.setPen(QPen(QColor(255, 255, 255, 100), 1))
+            painter.drawRoundedRect(rect, 10.0, 10.0)
         
         if self.is_collapsed and getattr(self, 'snap_edge', None):
             painter.setPen(QColor(255, 255, 255, 200))
@@ -242,7 +320,17 @@ class FenceWidget(QWidget):
             painter.setBrush(c)
             painter.setPen(Qt.PenStyle.NoPen)
             current_size = max(1.0, p.size * (p.life / p.max_life))
-            painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
+            
+            theme = self.manager.config.get("theme", "default")
+            if theme == "pixel":
+                painter.drawRect(int(p.x), int(p.y), int(current_size*2), int(current_size*2))
+            elif theme == "cyberpunk":
+                painter.setPen(QPen(c, 1))
+                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*3), int(p.y))
+            elif theme == "cute":
+                painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
+            else:
+                painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
 
 
     def get_resize_edges(self, pos):

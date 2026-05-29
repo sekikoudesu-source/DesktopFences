@@ -19,25 +19,54 @@ class FenceListWidget(QListWidget):
         self.setGridSize(QSize(85, 95))
         self.setResizeMode(QListWidget.ResizeMode.Adjust)
         self.setWordWrap(True)
-        self.setStyleSheet("""
-            QListWidget {
-                background: transparent;
-                border: none;
-                color: white;
-            }
-            QListWidget::item {
-                border-radius: 5px;
-            }
-            QListWidget::item:selected {
-                background: rgba(255, 255, 255, 60);
-            }
-            QListWidget::item:hover {
-                background: rgba(255, 255, 255, 30);
-            }
-        """)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+        self.apply_theme("default")
+
+    def apply_theme(self, theme):
+        if theme == "cute":
+            color = "#ffb6c1"
+            selected_bg = "rgba(255, 182, 193, 80)"
+            hover_bg = "rgba(255, 182, 193, 40)"
+            radius = "8px"
+        elif theme == "pixel":
+            color = "#00ff00"
+            selected_bg = "rgba(0, 255, 0, 80)"
+            hover_bg = "rgba(0, 255, 0, 40)"
+            radius = "0px"
+        elif theme == "cyberpunk":
+            color = "#00ffff"
+            selected_bg = "rgba(255, 0, 255, 60)"
+            hover_bg = "rgba(0, 255, 255, 30)"
+            radius = "2px"
+        elif theme == "line":
+            color = "white"
+            selected_bg = "rgba(255, 255, 255, 40)"
+            hover_bg = "rgba(255, 255, 255, 15)"
+            radius = "0px"
+        else: # default
+            color = "white"
+            selected_bg = "rgba(255, 255, 255, 60)"
+            hover_bg = "rgba(255, 255, 255, 30)"
+            radius = "5px"
+
+        self.setStyleSheet(f"""
+            QListWidget {{
+                background: transparent;
+                border: none;
+                color: {color};
+            }}
+            QListWidget::item {{
+                border-radius: {radius};
+            }}
+            QListWidget::item:selected {{
+                background: {selected_bg};
+            }}
+            QListWidget::item:hover {{
+                background: {hover_bg};
+            }}
+        """)
 
     def show_context_menu(self, pos):
         item = self.itemAt(pos)

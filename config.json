@@ -95,7 +95,7 @@
             "title": "\ud83c\udfb5 \u97f3\u4e50\u4e0e\u529e\u516c",
             "path": "virtual",
             "x": 1073,
-            "y": -242,
+            "y": 0,
             "width": 213,
             "height": 277,
             "is_virtual": true,
@@ -232,5 +232,6 @@
             "height": 234
         }
     ],
-    "hide_desktop_icons": true
+    "hide_desktop_icons": true,
+    "theme": "default"
 }

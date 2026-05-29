@@ -31,9 +31,12 @@ if not os.path.exists(DATA_DIR):
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
-        return {"opacity": 150, "fences": []}
+        return {"opacity": 150, "theme": "default", "fences": []}
     with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        cfg = json.load(f)
+        if "theme" not in cfg:
+            cfg["theme"] = "default"
+        return cfg
 
 def save_config(config):
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:

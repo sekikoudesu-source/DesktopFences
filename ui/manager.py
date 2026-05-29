@@ -100,6 +100,12 @@ class FenceManager:
         
         self.load_all_fences()
 
+    def change_global_theme(self, theme):
+        self.config["theme"] = theme
+        save_config(self.config)
+        for fence in self.fences:
+            fence.apply_theme()
+
     def migrate_old_physical_strategy(self):
         config_changed = False
         for fc in self.config.get("fences", []):
