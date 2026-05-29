@@ -278,6 +278,9 @@ class FenceWidget(QWidget):
                 # Delegate entirely to the native OS window manager for perfectly smooth 
                 # cross-monitor multi-DPI dragging without globalPosition jumps.
                 if self.window().windowHandle():
+                    # Lock the window's logical size during the drag to prevent Qt's PerMonitorV2
+                    # DPI engine from resizing the window mid-drag, which causes infinite jitter loops.
+                    self.setFixedSize(self.size())
                     self.window().windowHandle().startSystemMove()
                 self.animation.stop()
                 if self.is_collapsed:
@@ -294,6 +297,10 @@ class FenceWidget(QWidget):
             print(f"DEBUG [工作与文档]: moveEvent -> new pos: {self.pos()}, screen: {self.screen().name() if self.screen() else 'None'}")
             
     def _on_drag_finished(self):
+        # Unlock the window size so Qt can properly apply the new monitor's PerMonitorV2 scaling
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)
+        
         self.expanded_pos = self.pos()
         self.save_position()
         from PyQt6.QtGui import QCursor
