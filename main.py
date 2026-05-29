@@ -7,6 +7,13 @@ from core.config import save_config
 from ui.manager import FenceManager
 
 if __name__ == '__main__':
+    # In Qt6, to stop the Per-Monitor V2 DPI infinite resize loop (when a widget straddles
+    # two monitors with different DPIs, causing it to bounce back and forth), we MUST force
+    # Qt's Windows platform plugin to use System DPI Awareness (1) instead of Per-Monitor V2 (2).
+    # This prevents the physical QSize from jumping when crossing screens!
+    import os
+    os.environ["QT_QPA_PLATFORM"] = "windows:dpiawareness=1"
+    
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     manager = FenceManager(app)

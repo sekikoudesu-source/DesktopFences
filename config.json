@@ -5,10 +5,10 @@
             "id": "56730e5b-e9fb-4435-9f85-fe911f382664",
             "title": "\ud83c\udfae \u6e38\u620f\u5929\u5730",
             "path": "virtual",
-            "x": 175,
-            "y": -25,
-            "width": 320,
-            "height": 400,
+            "x": 433,
+            "y": -205,
+            "width": 214,
+            "height": 240,
             "is_virtual": true,
             "files": [
                 "ASTRONEER.url",
@@ -47,10 +47,10 @@
             "id": "fb67c4e7-868c-416b-9771-5ab1e6e16ba8",
             "title": "\ud83d\udcbb \u6781\u5ba2\u5f00\u53d1",
             "path": "virtual",
-            "x": 515,
-            "y": -13,
-            "width": 320,
-            "height": 400,
+            "x": 717,
+            "y": -198,
+            "width": 221,
+            "height": 233,
             "is_virtual": true,
             "files": [
                 "Antigravity IDE.lnk",
@@ -63,10 +63,10 @@
             "id": "baef54b2-5066-4a9e-8b5a-0ed8d30812d0",
             "title": "\ud83d\udcac \u793e\u4ea4\u901a\u8baf",
             "path": "virtual",
-            "x": -65,
-            "y": 111,
-            "width": 299,
-            "height": 400,
+            "x": -178,
+            "y": 292,
+            "width": 213,
+            "height": 180,
             "is_virtual": true,
             "files": [
                 "Discord.lnk",
@@ -78,10 +78,10 @@
             "id": "6f9709e5-8761-4b8f-8c42-edfd7b454b8f",
             "title": "\ud83d\udee0\ufe0f \u5b9e\u7528\u5de5\u5177",
             "path": "virtual",
-            "x": -119,
-            "y": 533,
-            "width": 320,
-            "height": 400,
+            "x": -199,
+            "y": 547,
+            "width": 234,
+            "height": 252,
             "is_virtual": true,
             "files": [
                 "Clash Verge.lnk",
@@ -94,10 +94,10 @@
             "id": "c655586d-1cd0-4f0c-9686-52f3662f1408",
             "title": "\ud83c\udfb5 \u97f3\u4e50\u4e0e\u529e\u516c",
             "path": "virtual",
-            "x": 879,
-            "y": 0,
-            "width": 326,
-            "height": 420,
+            "x": 1017,
+            "y": -242,
+            "width": 213,
+            "height": 277,
             "is_virtual": true,
             "files": [
                 "QQ\u97f3\u4e50.lnk",
@@ -189,10 +189,10 @@
                 "\uff12\u3001\u96fb\u6c17\u4e8b\u696d\u306e\u5909\u9077.pdf",
                 "\uff13.\u9577\u671f\u30a8\u30cd\u30eb\u30ae\uff0d\u9700\u7d66\u898b\u901a\u3057.pdf"
             ],
-            "x": 1621,
-            "y": 172,
-            "width": 320,
-            "height": 400
+            "x": 152,
+            "y": -215,
+            "width": 218,
+            "height": 250
         },
         {
             "id": "a4eb143e-5710-4375-9397-936154d10bdd",
@@ -226,10 +226,10 @@
                 "unnamed.jpg",
                 "xx_baise_daercun_3553.jpeg"
             ],
-            "x": 1246,
-            "y": -16,
-            "width": 320,
-            "height": 400
+            "x": 1363,
+            "y": -199,
+            "width": 216,
+            "height": 234
         }
     ],
     "hide_desktop_icons": true

@@ -90,6 +90,10 @@ class FenceWidget(QWidget):
         
         self.label = QLabel(self.title, self)
         self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
+        
+        self._drag_timer = QTimer(self)
+        self._drag_timer.setSingleShot(True)
+        self._drag_timer.timeout.connect(self._on_drag_finished)
         self.label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.label.customContextMenuRequested.connect(self.show_title_context_menu)
         layout.addWidget(self.label)
@@ -271,14 +275,36 @@ class FenceWidget(QWidget):
                 self._start_pos = event.globalPosition().toPoint()
                 self._resize_start_geometry = self.geometry()
             elif not self.list_widget.geometry().contains(event.pos()):
-                self._is_tracking = True
-                self._start_pos = event.globalPosition().toPoint() - self.pos()
+                # Delegate entirely to the native OS window manager for perfectly smooth 
+                # cross-monitor multi-DPI dragging without globalPosition jumps.
+                if self.window().windowHandle():
+                    self.window().windowHandle().startSystemMove()
                 self.animation.stop()
                 if self.is_collapsed:
                     self.is_collapsed = False
                     self.snap_edge = None
                     self.set_content_visible(True)
                     self.update()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        if hasattr(self, '_drag_timer'):
+            self._drag_timer.start(300)
+        if hasattr(self, 'title') and "工作" in self.title:
+            print(f"DEBUG [工作与文档]: moveEvent -> new pos: {self.pos()}, screen: {self.screen().name() if self.screen() else 'None'}")
+            
+    def _on_drag_finished(self):
+        self.expanded_pos = self.pos()
+        self.save_position()
+        from PyQt6.QtGui import QCursor
+        # Do not immediately hide if the user's mouse is still inside the widget after dropping it
+        if not self.geometry().contains(QCursor.pos()):
+            self.check_auto_hide()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'title') and "工作" in self.title:
+            print(f"DEBUG [工作与文档]: resizeEvent -> old: {event.oldSize()}, new: {event.size()}, current screen: {self.screen().name() if self.screen() else 'None'}")
 
     def mouseMoveEvent(self, event):
         if self._is_resizing:
@@ -297,10 +323,6 @@ class FenceWidget(QWidget):
             self.setGeometry(rect)
             return
 
-        if self._is_tracking:
-            self.move(event.globalPosition().toPoint() - self._start_pos)
-            return
-
         if not self.is_collapsed and not self._is_resizing and random.random() < 0.3:
             self.emit_stardust(event.pos())
 
@@ -312,11 +334,6 @@ class FenceWidget(QWidget):
             if self._is_resizing:
                 self._is_resizing = False
                 self.save_position()
-            elif self._is_tracking:
-                self._is_tracking = False
-                self.expanded_pos = self.pos()
-                self.save_position()
-                self.check_auto_hide()
             
     def save_position(self):
         for f in self.manager.config["fences"]:
@@ -353,6 +370,12 @@ class FenceWidget(QWidget):
             self.update()
 
     def leaveEvent(self, event):
+        from PyQt6.QtGui import QCursor
+        # Windows translucent hit-testing might falsely report the mouse leaving 
+        # if it hovers over a fully transparent pixel. We enforce a strict geometric bound check.
+        if self.geometry().contains(QCursor.pos()):
+            return
+            
         if not self._is_tracking and not self._is_resizing and not getattr(self, '_is_menu_open', False):
             self.check_auto_hide()
             
@@ -360,26 +383,85 @@ class FenceWidget(QWidget):
         self.label.setVisible(visible)
         self.list_widget.setVisible(visible)
 
+    def get_current_screen_geometry(self):
+        from PyQt6.QtWidgets import QApplication
+        widget_rect = self.geometry()
+        screens = QApplication.screens()
+        
+        max_area = -1
+        best_screen = None
+        
+        for screen in screens:
+            intersect = screen.availableGeometry().intersected(widget_rect)
+            area = intersect.width() * intersect.height()
+            if area > max_area:
+                max_area = area
+                best_screen = screen
+                
+        if max_area > 0 and best_screen:
+            return best_screen.availableGeometry()
+            
+        # Fallback: find closest screen
+        min_dist = float('inf')
+        best_screen = screens[0]
+        center = widget_rect.center()
+        
+        for screen in screens:
+            rect = screen.availableGeometry()
+            dx = center.x() - rect.center().x()
+            dy = center.y() - rect.center().y()
+            dist = dx*dx + dy*dy
+            if dist < min_dist:
+                min_dist = dist
+                best_screen = screen
+                
+        return best_screen.availableGeometry()
+
     def check_auto_hide(self):
-        screen_geometry = self.screen().availableGeometry()
+        screen_geometry = self.get_current_screen_geometry()
         margin = 30
         sliver_size = 35
         
+        if hasattr(self, 'title') and "工作" in self.title:
+            print(f"DEBUG [工作与文档]: check_auto_hide -> pos: {self.pos()}, size: {self.size()}, screen_geometry: {screen_geometry}")
+        
+        def is_outer_edge(edge):
+            from PyQt6.QtWidgets import QApplication
+            screens = QApplication.screens()
+            if edge == 'top':
+                pt = QPoint(self.x() + self.width() // 2, screen_geometry.top() - 1)
+            elif edge == 'left':
+                pt = QPoint(screen_geometry.left() - 1, self.y() + self.height() // 2)
+            elif edge == 'right':
+                pt = QPoint(screen_geometry.right() + 1, self.y() + self.height() // 2)
+            else:
+                return True
+            for s in screens:
+                if s.geometry().contains(pt):
+                    if hasattr(self, 'title') and "工作" in self.title:
+                        print(f"DEBUG [工作与文档]: is_outer_edge({edge}) -> False (Blocked by screen {s.geometry()})")
+                    return False
+            if hasattr(self, 'title') and "工作" in self.title:
+                print(f"DEBUG [工作与文档]: is_outer_edge({edge}) -> True")
+            return True
+            
         self.snap_edge = None
-        if self.y() <= screen_geometry.top() + margin:
+        if self.y() <= screen_geometry.top() + margin and is_outer_edge('top'):
             self.snap_edge = 'top'
             self.expanded_pos = QPoint(self.x(), screen_geometry.top())
             self.animation.setEndValue(QPoint(self.x(), screen_geometry.top() + sliver_size - self.height()))
-        elif self.x() <= screen_geometry.left() + margin:
+        elif self.x() <= screen_geometry.left() + margin and is_outer_edge('left'):
             self.snap_edge = 'left'
             self.expanded_pos = QPoint(screen_geometry.left(), self.y())
             self.animation.setEndValue(QPoint(screen_geometry.left() + sliver_size - self.width(), self.y()))
-        elif self.x() + self.width() >= screen_geometry.right() - margin:
+        elif self.x() + self.width() >= screen_geometry.right() - margin and is_outer_edge('right'):
             self.snap_edge = 'right'
             self.expanded_pos = QPoint(screen_geometry.right() - self.width() + 1, self.y())
             self.animation.setEndValue(QPoint(screen_geometry.right() - sliver_size + 1, self.y()))
             
         if self.snap_edge:
+            if hasattr(self, 'title') and "工作" in self.title:
+                print(f"DEBUG [工作与文档]: SNAP! edge={self.snap_edge}, endValue={self.animation.endValue()}")
             self.is_collapsed = True
             self.set_content_visible(False)
             self.animation.start()
