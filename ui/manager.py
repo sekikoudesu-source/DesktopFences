@@ -103,11 +103,16 @@ class FenceManager:
     def migrate_old_physical_strategy(self):
         config_changed = False
         for fc in self.config.get("fences", []):
-            if "is_virtual" not in fc:
-                # If the path is inside DATA_DIR, it's a virtual fence
-                is_virt = os.path.normpath(fc.get("path", "")).startswith(os.path.normpath(DATA_DIR)) or fc.get("path") == "virtual"
-                fc["is_virtual"] = is_virt
-                config_changed = True
+            path_str = os.path.normpath(fc.get("path", ""))
+            data_dir_str = os.path.normpath(DATA_DIR)
+            
+            # If the path is inside DATA_DIR, force it to be a virtual fence
+            if path_str.startswith(data_dir_str) or fc.get("path") == "virtual":
+                if not fc.get("is_virtual", False) or fc.get("path") != "virtual":
+                    fc["is_virtual"] = True
+                    fc["path"] = "virtual"
+                    config_changed = True
+                    
             if fc.get("is_virtual") and "files" not in fc:
                 fc["files"] = []
                 config_changed = True
@@ -304,6 +309,9 @@ class FenceManager:
                 self._spawn_fence_widget(fence_config)
             
             # Add items to the target fence and remove from unclassified
+            if "files" not in fence_config:
+                fence_config["files"] = []
+                
             for f in items:
                 if f not in fence_config["files"]:
                     fence_config["files"].append(f)
