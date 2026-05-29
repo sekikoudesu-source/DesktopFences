@@ -137,12 +137,12 @@ class FenceWidget(QWidget):
         
         if theme == "cute":
             self.label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
-        elif theme == "pixel":
-            self.label.setStyleSheet("color: #f8f8f2; font-weight: bold; font-size: 16px; font-family: 'Courier New', monospace; background: transparent;")
-        elif theme == "cyberpunk":
-            self.label.setStyleSheet("color: #fcee0a; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
-        elif theme == "line":
-            self.label.setStyleSheet("color: #e0e0e0; font-weight: normal; font-size: 16px; font-family: 'Segoe UI Light', sans-serif; background: transparent;")
+        elif theme == "aurora":
+            self.label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; font-family: 'Segoe UI', sans-serif; background: transparent;")
+        elif theme == "mecha":
+            self.label.setStyleSheet("color: #ff6600; font-weight: 900; font-size: 16px; font-family: 'Arial Black', sans-serif; background: transparent; padding-left: 5px;")
+        elif theme == "holographic":
+            self.label.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 16px; font-family: 'Consolas', monospace; background: transparent;")
         else:
             self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
             
@@ -151,17 +151,23 @@ class FenceWidget(QWidget):
     def show_title_context_menu(self, pos):
         menu = QMenu(self)
         theme = self.manager.config.get("theme", "default")
-        if theme == "pixel":
+        if theme == "aurora":
             menu.setStyleSheet("""
-                QMenu { background-color: #1e1e2e; color: #f8f8f2; border: 2px solid #ff79c6; font-family: 'Courier New'; }
+                QMenu { background-color: rgba(30, 10, 45, 0.9); color: white; border: 1px solid #7a28cb; border-radius: 8px; }
                 QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #ff79c6; color: #282a36; } 
+                QMenu::item:selected { background-color: #4a0e4e; } 
             """)
-        elif theme == "cyberpunk":
+        elif theme == "mecha":
             menu.setStyleSheet("""
-                QMenu { background-color: #0f0f1b; color: #00f0ff; border: 1px solid #fcee0a; font-family: 'Impact'; }
+                QMenu { background-color: #1a1a1a; color: #ff6600; border: 2px solid #ff6600; font-family: 'Arial Black'; font-weight: 900; }
                 QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #fcee0a; color: #0f0f1b; } 
+                QMenu::item:selected { background-color: #ff6600; color: #1a1a1a; } 
+            """)
+        elif theme == "holographic":
+            menu.setStyleSheet("""
+                QMenu { background-color: rgba(0, 20, 30, 0.9); color: #00e5ff; border: 1px solid #00e5ff; font-family: 'Consolas'; }
+                QMenu::item { padding: 5px 20px; }
+                QMenu::item:selected { background-color: rgba(0, 229, 255, 0.3); } 
             """)
         elif theme == "cute":
             menu.setStyleSheet("""
@@ -180,9 +186,9 @@ class FenceWidget(QWidget):
         themes = {
             "default": "默认风格 (Glassmorphism)",
             "cute": "可爱风 (Cute)",
-            "pixel": "像素风 (Pixel Art)",
-            "cyberpunk": "赛博朋克 (Cyberpunk)",
-            "line": "极简线条 (Line Art)"
+            "aurora": "极光毛玻璃 (Aurora Glass)",
+            "mecha": "硬核机甲 (Sci-Fi Mecha)",
+            "holographic": "全息投影 (Holographic HUD)"
         }
         for t_key, t_name in themes.items():
             act = theme_menu.addAction(t_name)
@@ -273,53 +279,71 @@ class FenceWidget(QWidget):
             painter.setBrush(grad)
             painter.setPen(QPen(QColor(130, 190, 255, 150), 2))
             painter.drawRoundedRect(rect, 15.0, 15.0)
-        elif theme == "pixel":
+        elif theme == "aurora":
+            grad = QLinearGradient(0, 0, rect.width(), rect.height())
+            grad.setColorAt(0.0, QColor(48, 12, 66, opacity + 40))   # Deep Purple
+            grad.setColorAt(0.5, QColor(25, 33, 76, opacity + 40))   # Midnight Blue
+            grad.setColorAt(1.0, QColor(10, 68, 89, opacity + 40))   # Deep Teal
+            painter.setBrush(grad)
+            painter.setPen(QPen(QColor(255, 255, 255, 80), 1))       # Soft white inner glow border
+            painter.drawRoundedRect(rect, 12.0, 12.0)
+            
+            # Subtle highlight on top edge
+            painter.setPen(QPen(QColor(255, 255, 255, 120), 1))
+            painter.drawLine(rect.left() + 12, rect.top(), rect.right() - 12, rect.top())
+
+        elif theme == "mecha":
+            from PyQt6.QtGui import QPainterPath
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setBrush(QColor(20, 20, 20, opacity + 60))
+            
+            # Draw industrial chamfered corners
+            path = QPainterPath()
+            cut = 20.0
+            path.moveTo(rect.left() + cut, rect.top())
+            path.lineTo(rect.right(), rect.top())
+            path.lineTo(rect.right(), rect.bottom() - cut)
+            path.lineTo(rect.right() - cut, rect.bottom())
+            path.lineTo(rect.left(), rect.bottom())
+            path.lineTo(rect.left(), rect.top() + cut)
+            path.closeSubpath()
+            
+            painter.setPen(QPen(QColor(255, 102, 0, 200), 2)) # Hazard Orange
+            painter.drawPath(path)
+            
+            # Draw subtle hazard stripes
+            painter.setBrush(Qt.BrushStyle.BDiagPattern)
+            painter.setPen(Qt.PenStyle.NoPen)
+            # Orange stripes brush
+            # But QBrush with pattern takes color for the pattern
+            # We'll just draw a small accent rect with stripes
+            painter.setBrush(QColor(255, 102, 0, 80))
+            painter.drawRect(rect.right() - 25, rect.top() + 5, 20, 10)
+
+        elif theme == "holographic":
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-            painter.setBrush(QColor(30, 30, 46, opacity + 60)) # Dracula dark base
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRect(rect)
-            # Outer pink border
-            painter.setPen(QPen(QColor(255, 121, 198, 255), 2))
-            painter.drawRect(rect.adjusted(1, 1, -1, -1))
-            # Inner cyan border
-            painter.setPen(QPen(QColor(139, 233, 253, 200), 1))
-            painter.drawRect(rect.adjusted(3, 3, -3, -3))
-        elif theme == "cyberpunk":
-            painter.setBrush(QColor(15, 15, 27, opacity + 80))
-            # Glowing cyan outer border
-            painter.setPen(QPen(QColor(0, 240, 255, 150), 3))
-            painter.drawRect(rect)
-            painter.setPen(QPen(QColor(0, 240, 255, 255), 1))
-            painter.drawRect(rect)
-            
-            # Draw cyberpunk yellow accents (top left, bottom right)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(252, 238, 10, 255))
-            painter.drawRect(rect.left(), rect.top(), 30, 4)
-            painter.drawRect(rect.left(), rect.top(), 4, 30)
-            painter.drawRect(rect.right() - 30, rect.bottom() - 3, 30, 4)
-            painter.drawRect(rect.right() - 3, rect.bottom() - 30, 4, 30)
-        elif theme == "line":
-            # Frosted glass base (very subtle)
-            painter.setBrush(QColor(255, 255, 255, 10))
+            painter.setBrush(QColor(0, 15, 25, opacity + 60))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRect(rect)
             
-            # Elegant Corner Brackets
-            painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
-            length = 20
-            # Top-Left
-            painter.drawLine(rect.left(), rect.top(), rect.left() + length, rect.top())
-            painter.drawLine(rect.left(), rect.top(), rect.left(), rect.top() + length)
-            # Top-Right
-            painter.drawLine(rect.right(), rect.top(), rect.right() - length, rect.top())
-            painter.drawLine(rect.right(), rect.top(), rect.right(), rect.top() + length)
-            # Bottom-Left
-            painter.drawLine(rect.left(), rect.bottom(), rect.left() + length, rect.bottom())
-            painter.drawLine(rect.left(), rect.bottom(), rect.left(), rect.bottom() - length)
-            # Bottom-Right
-            painter.drawLine(rect.right(), rect.bottom(), rect.right() - length, rect.bottom())
-            painter.drawLine(rect.right(), rect.bottom(), rect.right(), rect.bottom() - length)
+            # Glow effect via multiple overlapping rects
+            glow_colors = [
+                QColor(0, 229, 255, 20),
+                QColor(0, 229, 255, 60),
+                QColor(0, 229, 255, 120),
+                QColor(0, 229, 255, 255)
+            ]
+            for i, c in enumerate(glow_colors):
+                painter.setPen(QPen(c, 1))
+                painter.drawRect(rect.adjusted(i, i, -i, -i))
+            
+            # Draw scanlines overlay
+            painter.setBrush(QColor(0, 229, 255, 10))
+            painter.setPen(Qt.PenStyle.NoPen)
+            # We can't use pattern directly on QColor simply, so let's draw some horizontal lines manually
+            painter.setPen(QPen(QColor(0, 229, 255, 15), 1))
+            for y in range(rect.top(), rect.bottom(), 4):
+                painter.drawLine(rect.left(), y, rect.right(), y)
         else: # default
             painter.setBrush(QColor(0, 0, 0, opacity))
             painter.setPen(QPen(QColor(255, 255, 255, 100), 1))
@@ -358,15 +382,18 @@ class FenceWidget(QWidget):
             current_size = max(1.0, p.size * (p.life / p.max_life))
             
             theme = self.manager.config.get("theme", "default")
-            if theme == "pixel":
-                painter.drawRect(int(p.x), int(p.y), int(current_size*2), int(current_size*2))
-            elif theme == "cyberpunk":
+            if theme == "aurora":
+                # Soft floating orbs
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
+            elif theme == "mecha":
+                # Industrial sparks
+                painter.setPen(QPen(c, 2))
+                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*2), int(p.y + current_size*2))
+            elif theme == "holographic":
+                # Digital matrix glitch lines
                 painter.setPen(QPen(c, 1))
-                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*3), int(p.y))
-            elif theme == "cute":
-                painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
-            else:
-                painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
+                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*4), int(p.y))
 
 
     def get_resize_edges(self, pos):

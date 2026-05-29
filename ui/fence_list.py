@@ -30,21 +30,21 @@ class FenceListWidget(QListWidget):
             selected_bg = "rgba(162, 210, 255, 80)"
             hover_bg = "rgba(162, 210, 255, 40)"
             radius = "12px"
-        elif theme == "pixel":
-            color = "#f8f8f2" # Dracula white
-            selected_bg = "rgba(255, 121, 198, 80)" # Dracula pink
-            hover_bg = "rgba(139, 233, 253, 40)" # Dracula cyan
+        elif theme == "aurora":
+            color = "#ffffff" 
+            selected_bg = "rgba(122, 40, 203, 80)" # Vibrant purple selection
+            hover_bg = "rgba(122, 40, 203, 40)"
+            radius = "8px"
+        elif theme == "mecha":
+            color = "#ffffff" 
+            selected_bg = "rgba(255, 102, 0, 80)" # Hazard orange selection
+            hover_bg = "rgba(255, 102, 0, 40)"
             radius = "0px"
-        elif theme == "cyberpunk":
-            color = "#fcee0a" # Cyberpunk yellow
-            selected_bg = "rgba(0, 240, 255, 60)" # Neon cyan
-            hover_bg = "rgba(255, 0, 85, 40)" # Neon red/pink
-            radius = "0px"
-        elif theme == "line":
-            color = "#e0e0e0"
-            selected_bg = "rgba(255, 255, 255, 20)"
-            hover_bg = "rgba(255, 255, 255, 10)"
-            radius = "4px"
+        elif theme == "holographic":
+            color = "#00e5ff" # Electric blue text
+            selected_bg = "rgba(0, 229, 255, 40)"
+            hover_bg = "rgba(0, 229, 255, 20)"
+            radius = "2px"
         else: # default
             color = "white"
             selected_bg = "rgba(255, 255, 255, 60)"
