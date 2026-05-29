@@ -1,7 +1,7 @@
 import os
 import shutil
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QMessageBox, QListWidgetItem, QFileIconProvider
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QFileInfo, QTimer, QPointF
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QFileInfo, QTimer, QPointF, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPen, QAction, QIcon
 import random
 
@@ -321,12 +321,13 @@ class FenceWidget(QWidget):
             painter.drawRect(rect.right() - 25, rect.top() + 5, 20, 10)
 
         elif theme == "holographic":
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            from PyQt6.QtGui import QPainterPath
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
             painter.setBrush(QColor(0, 15, 25, opacity + 60))
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRect(rect)
+            painter.drawRoundedRect(rect, 15.0, 15.0)
             
-            # Glow effect via multiple overlapping rects
+            # Glow effect via multiple overlapping rounded rects
             glow_colors = [
                 QColor(0, 229, 255, 20),
                 QColor(0, 229, 255, 60),
@@ -335,15 +336,18 @@ class FenceWidget(QWidget):
             ]
             for i, c in enumerate(glow_colors):
                 painter.setPen(QPen(c, 1))
-                painter.drawRect(rect.adjusted(i, i, -i, -i))
+                # Adjust radius slightly for inner rects
+                painter.drawRoundedRect(rect.adjusted(i, i, -i, -i), max(0, 15.0 - i), max(0, 15.0 - i))
             
-            # Draw scanlines overlay
-            painter.setBrush(QColor(0, 229, 255, 10))
-            painter.setPen(Qt.PenStyle.NoPen)
-            # We can't use pattern directly on QColor simply, so let's draw some horizontal lines manually
+            # Draw scanlines overlay, clipped perfectly to the rounded corners
+            painter.save()
+            path = QPainterPath()
+            path.addRoundedRect(QRectF(rect), 15.0, 15.0)
+            painter.setClipPath(path)
             painter.setPen(QPen(QColor(0, 229, 255, 15), 1))
             for y in range(rect.top(), rect.bottom(), 4):
                 painter.drawLine(rect.left(), y, rect.right(), y)
+            painter.restore()
         else: # default
             painter.setBrush(QColor(0, 0, 0, opacity))
             painter.setPen(QPen(QColor(255, 255, 255, 100), 1))

@@ -63,10 +63,10 @@
             "id": "baef54b2-5066-4a9e-8b5a-0ed8d30812d0",
             "title": "\ud83d\udcac \u793e\u4ea4\u901a\u8baf",
             "path": "virtual",
-            "x": -178,
+            "x": -197,
             "y": 292,
-            "width": 213,
-            "height": 180,
+            "width": 232,
+            "height": 220,
             "is_virtual": true,
             "files": [
                 "Discord.lnk",
@@ -233,5 +233,5 @@
         }
     ],
     "hide_desktop_icons": true,
-    "theme": "cute"
+    "theme": "aurora"
 }
