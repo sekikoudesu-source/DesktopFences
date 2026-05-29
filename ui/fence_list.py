@@ -26,25 +26,25 @@ class FenceListWidget(QListWidget):
 
     def apply_theme(self, theme):
         if theme == "cute":
-            color = "#a2d2ff"
+            color = "#ffffff"
             selected_bg = "rgba(162, 210, 255, 80)"
             hover_bg = "rgba(162, 210, 255, 40)"
-            radius = "8px"
+            radius = "12px"
         elif theme == "pixel":
-            color = "#00ff00"
-            selected_bg = "rgba(0, 255, 0, 80)"
-            hover_bg = "rgba(0, 255, 0, 40)"
+            color = "#f8f8f2" # Dracula white
+            selected_bg = "rgba(255, 121, 198, 80)" # Dracula pink
+            hover_bg = "rgba(139, 233, 253, 40)" # Dracula cyan
             radius = "0px"
         elif theme == "cyberpunk":
-            color = "#00ffff"
-            selected_bg = "rgba(255, 0, 255, 60)"
-            hover_bg = "rgba(0, 255, 255, 30)"
-            radius = "2px"
-        elif theme == "line":
-            color = "white"
-            selected_bg = "rgba(255, 255, 255, 40)"
-            hover_bg = "rgba(255, 255, 255, 15)"
+            color = "#fcee0a" # Cyberpunk yellow
+            selected_bg = "rgba(0, 240, 255, 60)" # Neon cyan
+            hover_bg = "rgba(255, 0, 85, 40)" # Neon red/pink
             radius = "0px"
+        elif theme == "line":
+            color = "#e0e0e0"
+            selected_bg = "rgba(255, 255, 255, 20)"
+            hover_bg = "rgba(255, 255, 255, 10)"
+            radius = "4px"
         else: # default
             color = "white"
             selected_bg = "rgba(255, 255, 255, 60)"

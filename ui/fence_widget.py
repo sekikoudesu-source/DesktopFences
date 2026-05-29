@@ -136,13 +136,13 @@ class FenceWidget(QWidget):
         self.list_widget.apply_theme(theme)
         
         if theme == "cute":
-            self.label.setStyleSheet("color: #a2d2ff; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
+            self.label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
         elif theme == "pixel":
-            self.label.setStyleSheet("color: #00ff00; font-weight: bold; font-size: 16px; font-family: 'Courier New', monospace; background: transparent;")
+            self.label.setStyleSheet("color: #f8f8f2; font-weight: bold; font-size: 16px; font-family: 'Courier New', monospace; background: transparent;")
         elif theme == "cyberpunk":
-            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
+            self.label.setStyleSheet("color: #fcee0a; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
         elif theme == "line":
-            self.label.setStyleSheet("color: white; font-weight: normal; font-size: 16px; font-family: 'Segoe UI Light', sans-serif; background: transparent;")
+            self.label.setStyleSheet("color: #e0e0e0; font-weight: normal; font-size: 16px; font-family: 'Segoe UI Light', sans-serif; background: transparent;")
         else:
             self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
             
@@ -151,11 +151,17 @@ class FenceWidget(QWidget):
     def show_title_context_menu(self, pos):
         menu = QMenu(self)
         theme = self.manager.config.get("theme", "default")
-        if theme in ("pixel", "cyberpunk"):
+        if theme == "pixel":
             menu.setStyleSheet("""
-                QMenu { background-color: #000; color: #00ff00; border: 1px solid #00ff00; font-family: 'Courier New'; }
+                QMenu { background-color: #1e1e2e; color: #f8f8f2; border: 2px solid #ff79c6; font-family: 'Courier New'; }
                 QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #003300; } 
+                QMenu::item:selected { background-color: #ff79c6; color: #282a36; } 
+            """)
+        elif theme == "cyberpunk":
+            menu.setStyleSheet("""
+                QMenu { background-color: #0f0f1b; color: #00f0ff; border: 1px solid #fcee0a; font-family: 'Impact'; }
+                QMenu::item { padding: 5px 20px; }
+                QMenu::item:selected { background-color: #fcee0a; color: #0f0f1b; } 
             """)
         elif theme == "cute":
             menu.setStyleSheet("""
@@ -269,21 +275,51 @@ class FenceWidget(QWidget):
             painter.drawRoundedRect(rect, 15.0, 15.0)
         elif theme == "pixel":
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-            painter.setBrush(QColor(0, 0, 0, opacity + 40))
-            painter.setPen(QPen(QColor(0, 255, 0, 200), 2))
+            painter.setBrush(QColor(30, 30, 46, opacity + 60)) # Dracula dark base
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRect(rect)
+            # Outer pink border
+            painter.setPen(QPen(QColor(255, 121, 198, 255), 2))
             painter.drawRect(rect.adjusted(1, 1, -1, -1))
+            # Inner cyan border
+            painter.setPen(QPen(QColor(139, 233, 253, 200), 1))
+            painter.drawRect(rect.adjusted(3, 3, -3, -3))
         elif theme == "cyberpunk":
-            painter.setBrush(QColor(10, 10, 15, opacity + 60))
-            painter.setPen(QPen(QColor(0, 255, 255, 255), 2))
-            painter.drawRect(rect.adjusted(1, 1, -1, -1))
-            # Draw cyberpunk accents
-            painter.setPen(QPen(QColor(255, 0, 255, 200), 2))
-            painter.drawLine(rect.left(), rect.top() + 20, rect.left(), rect.top() + 60)
-            painter.drawLine(rect.right(), rect.bottom() - 60, rect.right(), rect.bottom() - 20)
+            painter.setBrush(QColor(15, 15, 27, opacity + 80))
+            # Glowing cyan outer border
+            painter.setPen(QPen(QColor(0, 240, 255, 150), 3))
+            painter.drawRect(rect)
+            painter.setPen(QPen(QColor(0, 240, 255, 255), 1))
+            painter.drawRect(rect)
+            
+            # Draw cyberpunk yellow accents (top left, bottom right)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(252, 238, 10, 255))
+            painter.drawRect(rect.left(), rect.top(), 30, 4)
+            painter.drawRect(rect.left(), rect.top(), 4, 30)
+            painter.drawRect(rect.right() - 30, rect.bottom() - 3, 30, 4)
+            painter.drawRect(rect.right() - 3, rect.bottom() - 30, 4, 30)
         elif theme == "line":
-            painter.setBrush(QColor(0, 0, 0, opacity // 2))
-            painter.setPen(QPen(QColor(255, 255, 255, 180), 1))
-            painter.drawRect(rect.adjusted(0, 0, -1, -1))
+            # Frosted glass base (very subtle)
+            painter.setBrush(QColor(255, 255, 255, 10))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRect(rect)
+            
+            # Elegant Corner Brackets
+            painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+            length = 20
+            # Top-Left
+            painter.drawLine(rect.left(), rect.top(), rect.left() + length, rect.top())
+            painter.drawLine(rect.left(), rect.top(), rect.left(), rect.top() + length)
+            # Top-Right
+            painter.drawLine(rect.right(), rect.top(), rect.right() - length, rect.top())
+            painter.drawLine(rect.right(), rect.top(), rect.right(), rect.top() + length)
+            # Bottom-Left
+            painter.drawLine(rect.left(), rect.bottom(), rect.left() + length, rect.bottom())
+            painter.drawLine(rect.left(), rect.bottom(), rect.left(), rect.bottom() - length)
+            # Bottom-Right
+            painter.drawLine(rect.right(), rect.bottom(), rect.right() - length, rect.bottom())
+            painter.drawLine(rect.right(), rect.bottom(), rect.right(), rect.bottom() - length)
         else: # default
             painter.setBrush(QColor(0, 0, 0, opacity))
             painter.setPen(QPen(QColor(255, 255, 255, 100), 1))
