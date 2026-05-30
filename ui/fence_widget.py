@@ -656,8 +656,6 @@ class FenceWidget(QWidget):
             self.animation.setEndValue(QPoint(screen_geometry.right() - sliver_size + 1, self.y()))
             
         if self.snap_edge:
-            if hasattr(self, 'title') and self.title_text == "工作与文档":
-                pass
             self.is_collapsed = True
             self.set_content_visible(False)
             self.animation.start()
