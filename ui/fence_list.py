@@ -11,6 +11,7 @@ from utils.win32 import robust_move, open_file_safely
 
 import time
 from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
+from PyQt6.QtGui import QPainter
 
 class NeonTextDelegate(QStyledItemDelegate):
     def __init__(self, list_widget):
