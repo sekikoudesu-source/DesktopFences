@@ -77,7 +77,6 @@ class FenceListWidget(QListWidget):
             QListWidget::item:hover {{
                 background: {hover_bg};
             }}
-            }}
         """)
         
         self.current_theme = theme
@@ -95,13 +94,22 @@ class FenceListWidget(QListWidget):
         for i in range(self.count()):
             self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
             
-        num_flicker = random.randint(1, min(3, self.count()))
+        neon_colors = [
+            QColor("#ff00ff"), # Magenta
+            QColor("#00ffff"), # Cyan
+            QColor("#39ff14"), # Neon Green
+            QColor("#ff0055"), # Neon Pink
+            QColor("#bf00ff"), # Purple
+            QColor("#ffffff")  # Flash White
+        ]
+            
+        num_flicker = random.randint(1, min(self.count(), 4))
         for _ in range(num_flicker):
             idx = random.randint(0, self.count() - 1)
             item = self.item(idx)
-            item.setForeground(QBrush(QColor(60, 60, 0))) # Dim state
+            item.setForeground(QBrush(random.choice(neon_colors)))
             
-        QTimer.singleShot(random.randint(80, 200), self._restore_neon_flicker)
+        QTimer.singleShot(random.randint(100, 300), self._restore_neon_flicker)
         
     def _restore_neon_flicker(self):
         if self.current_theme != "cyberpunk": return
