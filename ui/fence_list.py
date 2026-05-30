@@ -29,7 +29,10 @@ class NeonTextDelegate(QStyledItemDelegate):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
             
             style = option.widget.style()
-            text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, option, option.widget)
+            item_rect = option.rect
+            from PyQt6.QtCore import QRect
+            # Icon is 48x48 near top. Place text in the bottom section (height 95 - 52 = 43)
+            text_rect = QRect(item_rect.left(), item_rect.top() + 54, item_rect.width(), item_rect.height() - 54)
             
             period_pixels = 80
             offset_x = (time.time() * 30) % period_pixels
@@ -46,7 +49,7 @@ class NeonTextDelegate(QStyledItemDelegate):
             grad.setColorAt(1.0, QColor("#ff00ff"))   # Magenta
             
             painter.setPen(QPen(QBrush(grad), 1))
-            painter.drawText(text_rect, option.displayAlignment | Qt.TextFlag.TextWordWrap, text)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, text)
             
             painter.restore()
 

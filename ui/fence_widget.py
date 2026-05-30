@@ -63,49 +63,6 @@ def get_icon_for_file(file_path, provider):
 import time
 from PyQt6.QtGui import QPainter, QLinearGradient, QColor, QPen, QBrush
 
-class NeonTitleLabel(QLabel):
-    def __init__(self, text, parent=None):
-        super().__init__(text, parent)
-        self.animation_timer = QTimer(self)
-        self.animation_timer.timeout.connect(self.update)
-
-    def paintEvent(self, event):
-        theme = getattr(self.window(), 'manager', None)
-        theme_name = theme.config.get("theme", "default") if theme else "default"
-        
-        # Always call super to handle background/border styling
-        super().paintEvent(event)
-        
-        if theme_name != "cyberpunk":
-            if self.animation_timer.isActive():
-                self.animation_timer.stop()
-            return
-            
-        if not self.animation_timer.isActive():
-            self.animation_timer.start(16)
-            
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setFont(self.font())
-        
-        rect = self.rect()
-        period_pixels = 80
-        offset_x = (time.time() * 30) % period_pixels
-        
-        grad = QLinearGradient(rect.left() - offset_x, 0, rect.left() - offset_x + period_pixels, 0)
-        grad.setSpread(QLinearGradient.Spread.RepeatSpread)
-        
-        grad.setColorAt(0.0, QColor("#ff00ff"))
-        grad.setColorAt(0.2, QColor("#00e5ff"))
-        grad.setColorAt(0.4, QColor("#39ff14"))
-        grad.setColorAt(0.6, QColor("#ff0055"))
-        grad.setColorAt(0.8, QColor("#fcee0a"))
-        grad.setColorAt(1.0, QColor("#ff00ff"))
-        
-        painter.setPen(QPen(QBrush(grad), 1))
-        # Draw the text manually on top of the transparent original text
-        painter.drawText(rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.text())
-
 class FenceWidget(QWidget):
     def __init__(self, fence_config, manager):
         super().__init__()
@@ -134,7 +91,10 @@ class FenceWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         
-        self.label = NeonTitleLabel(self.title, self)
+        self.label = QLabel(self.title, self)
+        
+        self.border_timer = QTimer(self)
+        self.border_timer.timeout.connect(self.update)
         
         self._drag_timer = QTimer(self)
         self._drag_timer.setSingleShot(True)
@@ -188,11 +148,15 @@ class FenceWidget(QWidget):
         elif theme == "mecha":
             self.label.setStyleSheet("color: #ff6600; font-weight: 900; font-size: 16px; font-family: 'Arial Black', sans-serif; background: transparent; padding-left: 5px;")
         elif theme == "cyberpunk":
-            self.label.setStyleSheet("color: transparent; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
+            self.border_timer.start(16)
+            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
         elif theme == "holographic":
             self.label.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 16px; font-family: 'Consolas', monospace; background: transparent;")
         else:
             self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
+            
+        if theme != "cyberpunk":
+            self.border_timer.stop()
             
         self.update()
 
@@ -367,11 +331,6 @@ class FenceWidget(QWidget):
             painter.drawPath(path)
             
             # Draw subtle hazard stripes
-            painter.setBrush(Qt.BrushStyle.BDiagPattern)
-            painter.setPen(Qt.PenStyle.NoPen)
-            # Orange stripes brush
-            # But QBrush with pattern takes color for the pattern
-            # We'll just draw a small accent rect with stripes
             painter.setBrush(QColor(255, 102, 0, 80))
             painter.drawRect(rect.right() - 25, rect.top() + 5, 20, 10)
 
@@ -394,18 +353,28 @@ class FenceWidget(QWidget):
             path.closeSubpath()
             painter.drawPath(path)
             
-            # Edgerunner Yellow Accent Top Border
-            painter.setBrush(QColor(252, 238, 10, 255))
-            painter.drawRect(rect.left(), rect.top(), int(rect.width() * 0.6), 5)
+            # Animated RGB borders
+            import time
+            period_pixels = 300
+            offset = (time.time() * 60) % period_pixels
             
-            # Neon Cyan Accent Bottom-Right cut
-            painter.setPen(QPen(QColor(0, 229, 255, 255), 4))
-            painter.drawLine(int(rect.right() - cut), rect.bottom(), rect.right(), int(rect.bottom() - cut))
+            border_grad = QLinearGradient(rect.left() - offset, rect.top() - offset, rect.right() - offset, rect.bottom() - offset)
+            border_grad.setSpread(QLinearGradient.Spread.RepeatSpread)
             
-            # Neon Pink Accent Left Border
-            painter.setBrush(QColor(255, 0, 85, 255))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRect(rect.left(), rect.top() + 30, 4, int(rect.height() * 0.4))
+            border_grad.setColorAt(0.0, QColor("#ff00ff"))
+            border_grad.setColorAt(0.2, QColor("#00e5ff"))
+            border_grad.setColorAt(0.4, QColor("#39ff14"))
+            border_grad.setColorAt(0.6, QColor("#ff0055"))
+            border_grad.setColorAt(0.8, QColor("#fcee0a"))
+            border_grad.setColorAt(1.0, QColor("#ff00ff"))
+            
+            glow_pen = QPen(QBrush(border_grad), 6)
+            painter.setPen(glow_pen)
+            painter.drawPath(path)
+            
+            inner_pen = QPen(QBrush(border_grad), 2)
+            painter.setPen(inner_pen)
+            painter.drawPath(path)
 
         elif theme == "holographic":
             from PyQt6.QtGui import QPainterPath
