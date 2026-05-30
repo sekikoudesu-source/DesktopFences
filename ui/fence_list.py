@@ -9,6 +9,46 @@ import random
 from core.config import save_restore_map, save_config
 from utils.win32 import robust_move, open_file_safely
 
+import time
+from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
+
+class NeonTextDelegate(QStyledItemDelegate):
+    def __init__(self, list_widget):
+        super().__init__(list_widget)
+        self.list_widget = list_widget
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        
+        if getattr(self.list_widget, 'current_theme', '') == "cyberpunk":
+            text = index.data(Qt.ItemDataRole.DisplayRole)
+            if not text: return
+            
+            painter.save()
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            
+            style = option.widget.style()
+            text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, option, option.widget)
+            
+            period_pixels = 80
+            offset_x = (time.time() * 80) % period_pixels
+            
+            from PyQt6.QtGui import QLinearGradient, QPen
+            grad = QLinearGradient(text_rect.left() - offset_x, 0, text_rect.left() - offset_x + period_pixels, 0)
+            grad.setSpread(QLinearGradient.Spread.RepeatSpread)
+            
+            grad.setColorAt(0.0, QColor("#ff00ff"))   # Magenta
+            grad.setColorAt(0.2, QColor("#00e5ff"))   # Cyan
+            grad.setColorAt(0.4, QColor("#39ff14"))   # Neon Green
+            grad.setColorAt(0.6, QColor("#ff0055"))   # Neon Pink
+            grad.setColorAt(0.8, QColor("#fcee0a"))   # Yellow
+            grad.setColorAt(1.0, QColor("#ff00ff"))   # Magenta
+            
+            painter.setPen(QPen(QBrush(grad), 1))
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, text)
+            
+            painter.restore()
+
 class FenceListWidget(QListWidget):
     def __init__(self, folder_path, parent=None):
         super().__init__(parent)
@@ -24,8 +64,11 @@ class FenceListWidget(QListWidget):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         
-        self.flicker_timer = QTimer(self)
-        self.flicker_timer.timeout.connect(self._do_neon_flicker)
+        self.setItemDelegate(NeonTextDelegate(self))
+        
+        self.animation_timer = QTimer(self)
+        self.animation_timer.timeout.connect(self.viewport().update)
+        
         self.current_theme = "default"
         
         self.apply_theme("default")
@@ -81,40 +124,13 @@ class FenceListWidget(QListWidget):
         
         self.current_theme = theme
         if theme == "cyberpunk":
-            self.flicker_timer.start(1000) # Random flicker every 1 second
+            self.animation_timer.start(16) # ~60 FPS
+            for i in range(self.count()):
+                self.item(i).setData(Qt.ItemDataRole.ForegroundRole, QColor(0,0,0,0)) # Transparent
         else:
-            self.flicker_timer.stop()
+            self.animation_timer.stop()
             for i in range(self.count()):
                 self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
-
-    def _do_neon_flicker(self):
-        if self.current_theme != "cyberpunk" or self.count() == 0:
-            return
-            
-        for i in range(self.count()):
-            self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
-            
-        neon_colors = [
-            QColor("#ff00ff"), # Magenta
-            QColor("#00ffff"), # Cyan
-            QColor("#39ff14"), # Neon Green
-            QColor("#ff0055"), # Neon Pink
-            QColor("#bf00ff"), # Purple
-            QColor("#ffffff")  # Flash White
-        ]
-            
-        num_flicker = random.randint(1, min(self.count(), 4))
-        for _ in range(num_flicker):
-            idx = random.randint(0, self.count() - 1)
-            item = self.item(idx)
-            item.setForeground(QBrush(random.choice(neon_colors)))
-            
-        QTimer.singleShot(random.randint(100, 300), self._restore_neon_flicker)
-        
-    def _restore_neon_flicker(self):
-        if self.current_theme != "cyberpunk": return
-        for i in range(self.count()):
-            self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
 
     def show_context_menu(self, pos):
         item = self.itemAt(pos)
