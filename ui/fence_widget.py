@@ -493,8 +493,6 @@ class FenceWidget(QWidget):
         super().moveEvent(event)
         if hasattr(self, '_drag_timer'):
             self._drag_timer.start(300)
-        if hasattr(self, 'title') and self.title_text == "工作与文档":
-            pass
             
     def _on_drag_finished(self):
         # Unlock the window size so Qt can properly apply the new monitor's PerMonitorV2 scaling
@@ -510,8 +508,6 @@ class FenceWidget(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, 'title') and self.title_text == "工作与文档":
-            pass
 
     def mouseMoveEvent(self, event):
         if self._is_resizing:
@@ -628,9 +624,6 @@ class FenceWidget(QWidget):
         screen_geometry = self.get_current_screen_geometry()
         margin = 30
         sliver_size = 35
-        
-        if hasattr(self, 'title') and self.title_text == "工作与文档":
-            pass
         
         def is_outer_edge(edge):
             from PyQt6.QtWidgets import QApplication
