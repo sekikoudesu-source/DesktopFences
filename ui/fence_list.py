@@ -2,8 +2,9 @@ import os
 import shutil
 import subprocess
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QAbstractItemView, QMenu, QMessageBox, QInputDialog
-from PyQt6.QtCore import Qt, QSize, QFileInfo, QMimeData, QUrl
-from PyQt6.QtGui import QAction, QDrag, QIcon
+from PyQt6.QtCore import Qt, QSize, QFileInfo, QMimeData, QUrl, QTimer
+from PyQt6.QtGui import QAction, QDrag, QIcon, QBrush, QColor
+import random
 
 from core.config import save_restore_map, save_config
 from utils.win32 import robust_move, open_file_safely
@@ -22,6 +23,11 @@ class FenceListWidget(QListWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+        
+        self.flicker_timer = QTimer(self)
+        self.flicker_timer.timeout.connect(self._do_neon_flicker)
+        self.current_theme = "default"
+        
         self.apply_theme("default")
 
     def apply_theme(self, theme):
@@ -71,7 +77,36 @@ class FenceListWidget(QListWidget):
             QListWidget::item:hover {{
                 background: {hover_bg};
             }}
+            }}
         """)
+        
+        self.current_theme = theme
+        if theme == "cyberpunk":
+            self.flicker_timer.start(1000) # Random flicker every 1 second
+        else:
+            self.flicker_timer.stop()
+            for i in range(self.count()):
+                self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
+
+    def _do_neon_flicker(self):
+        if self.current_theme != "cyberpunk" or self.count() == 0:
+            return
+            
+        for i in range(self.count()):
+            self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
+            
+        num_flicker = random.randint(1, min(3, self.count()))
+        for _ in range(num_flicker):
+            idx = random.randint(0, self.count() - 1)
+            item = self.item(idx)
+            item.setForeground(QBrush(QColor(60, 60, 0))) # Dim state
+            
+        QTimer.singleShot(random.randint(80, 200), self._restore_neon_flicker)
+        
+    def _restore_neon_flicker(self):
+        if self.current_theme != "cyberpunk": return
+        for i in range(self.count()):
+            self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
 
     def show_context_menu(self, pos):
         item = self.itemAt(pos)

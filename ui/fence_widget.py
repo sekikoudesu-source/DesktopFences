@@ -142,7 +142,7 @@ class FenceWidget(QWidget):
         elif theme == "mecha":
             self.label.setStyleSheet("color: #ff6600; font-weight: 900; font-size: 16px; font-family: 'Arial Black', sans-serif; background: transparent; padding-left: 5px;")
         elif theme == "cyberpunk":
-            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent; text-shadow: 0px 0px 10px #00ffff;")
+            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
         elif theme == "holographic":
             self.label.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 16px; font-family: 'Consolas', monospace; background: transparent;")
         else:
