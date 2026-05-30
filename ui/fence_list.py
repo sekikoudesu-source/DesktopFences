@@ -32,7 +32,7 @@ class NeonTextDelegate(QStyledItemDelegate):
             text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, option, option.widget)
             
             period_pixels = 80
-            offset_x = (time.time() * 80) % period_pixels
+            offset_x = (time.time() * 30) % period_pixels
             
             from PyQt6.QtGui import QLinearGradient, QPen
             grad = QLinearGradient(text_rect.left() - offset_x, 0, text_rect.left() - offset_x + period_pixels, 0)
@@ -91,7 +91,7 @@ class FenceListWidget(QListWidget):
             hover_bg = "rgba(255, 102, 0, 40)"
             radius = "0px"
         elif theme == "cyberpunk":
-            color = "#fcee0a" # Neon yellow text
+            color = "transparent" # Hide default text to allow custom NeonTextDelegate drawing
             selected_bg = "rgba(255, 0, 85, 80)" # Neon pink selection
             hover_bg = "rgba(0, 229, 255, 40)" # Neon cyan hover
             radius = "0px"
@@ -126,12 +126,8 @@ class FenceListWidget(QListWidget):
         self.current_theme = theme
         if theme == "cyberpunk":
             self.animation_timer.start(16) # ~60 FPS
-            for i in range(self.count()):
-                self.item(i).setData(Qt.ItemDataRole.ForegroundRole, QColor(0,0,0,0)) # Transparent
         else:
             self.animation_timer.stop()
-            for i in range(self.count()):
-                self.item(i).setData(Qt.ItemDataRole.ForegroundRole, None)
 
     def show_context_menu(self, pos):
         item = self.itemAt(pos)
