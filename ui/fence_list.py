@@ -40,6 +40,11 @@ class FenceListWidget(QListWidget):
             selected_bg = "rgba(255, 102, 0, 80)" # Hazard orange selection
             hover_bg = "rgba(255, 102, 0, 40)"
             radius = "0px"
+        elif theme == "cyberpunk":
+            color = "#fcee0a" # Neon yellow text
+            selected_bg = "rgba(255, 0, 85, 80)" # Neon pink selection
+            hover_bg = "rgba(0, 229, 255, 40)" # Neon cyan hover
+            radius = "0px"
         elif theme == "holographic":
             color = "#00e5ff" # Electric blue text
             selected_bg = "rgba(0, 229, 255, 40)"

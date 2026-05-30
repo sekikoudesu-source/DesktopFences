@@ -141,6 +141,8 @@ class FenceWidget(QWidget):
             self.label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; font-family: 'Segoe UI', sans-serif; background: transparent;")
         elif theme == "mecha":
             self.label.setStyleSheet("color: #ff6600; font-weight: 900; font-size: 16px; font-family: 'Arial Black', sans-serif; background: transparent; padding-left: 5px;")
+        elif theme == "cyberpunk":
+            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent; text-shadow: 0px 0px 10px #00ffff;")
         elif theme == "holographic":
             self.label.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 16px; font-family: 'Consolas', monospace; background: transparent;")
         else:
@@ -162,6 +164,12 @@ class FenceWidget(QWidget):
                 QMenu { background-color: #1a1a1a; color: #ff6600; border: 2px solid #ff6600; font-family: 'Arial Black'; font-weight: 900; }
                 QMenu::item { padding: 5px 20px; }
                 QMenu::item:selected { background-color: #ff6600; color: #1a1a1a; } 
+            """)
+        elif theme == "cyberpunk":
+            menu.setStyleSheet("""
+                QMenu { background-color: #0b0b1a; color: #00ffff; border: 2px solid #ff00ff; font-family: 'Impact'; }
+                QMenu::item { padding: 5px 20px; }
+                QMenu::item:selected { background-color: #ff00ff; color: #000000; } 
             """)
         elif theme == "holographic":
             menu.setStyleSheet("""
@@ -188,6 +196,7 @@ class FenceWidget(QWidget):
             "cute": "可爱风 (Cute)",
             "aurora": "极光毛玻璃 (Aurora Glass)",
             "mecha": "硬核机甲 (Sci-Fi Mecha)",
+            "cyberpunk": "赛博霓虹 (Cyberpunk Neon)",
             "holographic": "全息投影 (Holographic HUD)"
         }
         for t_key, t_name in themes.items():
@@ -320,6 +329,38 @@ class FenceWidget(QWidget):
             painter.setBrush(QColor(255, 102, 0, 80))
             painter.drawRect(rect.right() - 25, rect.top() + 5, 20, 10)
 
+        elif theme == "cyberpunk":
+            from PyQt6.QtGui import QPainterPath
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            
+            # Solid Dark Cyberpunk Base
+            painter.setBrush(QColor(20, 20, 25, opacity + 100))
+            painter.setPen(Qt.PenStyle.NoPen)
+            
+            # Draw cyberpunk base with chopped bottom-right corner
+            path = QPainterPath()
+            cut = 30.0
+            path.moveTo(rect.left(), rect.top())
+            path.lineTo(rect.right(), rect.top())
+            path.lineTo(rect.right(), rect.bottom() - cut)
+            path.lineTo(rect.right() - cut, rect.bottom())
+            path.lineTo(rect.left(), rect.bottom())
+            path.closeSubpath()
+            painter.drawPath(path)
+            
+            # Edgerunner Yellow Accent Top Border
+            painter.setBrush(QColor(252, 238, 10, 255))
+            painter.drawRect(rect.left(), rect.top(), int(rect.width() * 0.6), 5)
+            
+            # Neon Cyan Accent Bottom-Right cut
+            painter.setPen(QPen(QColor(0, 229, 255, 255), 4))
+            painter.drawLine(int(rect.right() - cut), rect.bottom(), rect.right(), int(rect.bottom() - cut))
+            
+            # Neon Pink Accent Left Border
+            painter.setBrush(QColor(255, 0, 85, 255))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRect(rect.left(), rect.top() + 30, 4, int(rect.height() * 0.4))
+
         elif theme == "holographic":
             from PyQt6.QtGui import QPainterPath
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -394,6 +435,10 @@ class FenceWidget(QWidget):
                 # Industrial sparks
                 painter.setPen(QPen(c, 2))
                 painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*2), int(p.y + current_size*2))
+            elif theme == "cyberpunk":
+                # Glitch particles
+                painter.setPen(QPen(c, 2))
+                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*3), int(p.y))
             elif theme == "holographic":
                 # Digital matrix glitch lines
                 painter.setPen(QPen(c, 1))
@@ -448,8 +493,8 @@ class FenceWidget(QWidget):
         super().moveEvent(event)
         if hasattr(self, '_drag_timer'):
             self._drag_timer.start(300)
-        if hasattr(self, 'title') and "工作" in self.title:
-            print(f"DEBUG [工作与文档]: moveEvent -> new pos: {self.pos()}, screen: {self.screen().name() if self.screen() else 'None'}")
+        if hasattr(self, 'title') and self.title_text == "工作与文档":
+            pass
             
     def _on_drag_finished(self):
         # Unlock the window size so Qt can properly apply the new monitor's PerMonitorV2 scaling
@@ -465,8 +510,8 @@ class FenceWidget(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, 'title') and "工作" in self.title:
-            print(f"DEBUG [工作与文档]: resizeEvent -> old: {event.oldSize()}, new: {event.size()}, current screen: {self.screen().name() if self.screen() else 'None'}")
+        if hasattr(self, 'title') and self.title_text == "工作与文档":
+            pass
 
     def mouseMoveEvent(self, event):
         if self._is_resizing:
@@ -584,8 +629,8 @@ class FenceWidget(QWidget):
         margin = 30
         sliver_size = 35
         
-        if hasattr(self, 'title') and "工作" in self.title:
-            print(f"DEBUG [工作与文档]: check_auto_hide -> pos: {self.pos()}, size: {self.size()}, screen_geometry: {screen_geometry}")
+        if hasattr(self, 'title') and self.title_text == "工作与文档":
+            pass
         
         def is_outer_edge(edge):
             from PyQt6.QtWidgets import QApplication
@@ -600,11 +645,7 @@ class FenceWidget(QWidget):
                 return True
             for s in screens:
                 if s.geometry().contains(pt):
-                    if hasattr(self, 'title') and "工作" in self.title:
-                        print(f"DEBUG [工作与文档]: is_outer_edge({edge}) -> False (Blocked by screen {s.geometry()})")
                     return False
-            if hasattr(self, 'title') and "工作" in self.title:
-                print(f"DEBUG [工作与文档]: is_outer_edge({edge}) -> True")
             return True
             
         self.snap_edge = None
@@ -622,8 +663,8 @@ class FenceWidget(QWidget):
             self.animation.setEndValue(QPoint(screen_geometry.right() - sliver_size + 1, self.y()))
             
         if self.snap_edge:
-            if hasattr(self, 'title') and "工作" in self.title:
-                print(f"DEBUG [工作与文档]: SNAP! edge={self.snap_edge}, endValue={self.animation.endValue()}")
+            if hasattr(self, 'title') and self.title_text == "工作与文档":
+                pass
             self.is_collapsed = True
             self.set_content_visible(False)
             self.animation.start()
