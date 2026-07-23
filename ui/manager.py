@@ -11,7 +11,7 @@ from core.categorization import guess_category
 from core.worker import MoveWorker
 from ui.fence_widget import FenceWidget
 from ui.settings import SettingsDialog
-from utils.win32 import set_window_bottom, robust_move, set_desktop_icons_visible, DesktopDoubleCheckThread
+from utils.win32 import set_window_bottom, robust_move, set_desktop_icons_visible, DesktopDoubleClickListener
 
 class FenceManager:
     def __init__(self, app):
@@ -46,7 +46,7 @@ class FenceManager:
         
         self.app.aboutToQuit.connect(self.on_quit)
         self.all_fences_visible = True
-        self.desktop_hook_thread = None
+        self.desktop_listener = None
         if self.config.get("double_click_hide", True):
             self.start_desktop_hook()
 
@@ -323,16 +323,15 @@ class FenceManager:
                 fence.load_files()
 
     def start_desktop_hook(self):
-        if not self.desktop_hook_thread:
-            self.desktop_hook_thread = DesktopDoubleCheckThread(self.app)
-            self.desktop_hook_thread.double_clicked.connect(self.toggle_all_fences_visibility)
-            self.desktop_hook_thread.start()
+        if not getattr(self, "desktop_listener", None):
+            self.desktop_listener = DesktopDoubleClickListener(self.app)
+            self.desktop_listener.double_clicked.connect(self.toggle_all_fences_visibility)
+            self.desktop_listener.start()
 
     def stop_desktop_hook(self):
-        if self.desktop_hook_thread:
-            self.desktop_hook_thread.stop()
-            self.desktop_hook_thread.wait()
-            self.desktop_hook_thread = None
+        if getattr(self, "desktop_listener", None):
+            self.desktop_listener.stop()
+            self.desktop_listener = None
 
     def update_opacity(self, opacity):
         self.config["opacity"] = opacity

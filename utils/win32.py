@@ -117,112 +117,53 @@ def open_file_safely(file_path):
 
 
 import ctypes
-import ctypes.wintypes
 import time
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
-class DesktopDoubleCheckThread(QThread):
+class DesktopDoubleClickListener(QObject):
     double_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.running = False
-        self.hook = None
+        self.timer = QTimer(self)
+        self.timer.setInterval(20)
+        self.timer.timeout.connect(self._check_click)
+        self._was_down = False
         self._last_click_time = 0
         self._last_click_pos = (0, 0)
-        self._hook_proc = None
 
-    def run(self):
-        self.running = True
-
-        CMPFUNC = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)
-
-        class POINT(ctypes.Structure):
-            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-        class MSLLHOOKSTRUCT(ctypes.Structure):
-            _fields_ = [
-                ("pt", POINT),
-                ("mouseData", ctypes.wintypes.DWORD),
-                ("flags", ctypes.wintypes.DWORD),
-                ("time", ctypes.wintypes.DWORD),
-                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
-            ]
-
-        user32 = ctypes.windll.user32
-        WH_MOUSE_LL = 14
-        WM_LBUTTONDOWN = 0x0201
-        double_click_time = user32.GetDoubleClickTime() / 1000.0
-
-        user32.CallNextHookEx.argtypes = [
-            ctypes.wintypes.HHOOK,
-            ctypes.c_int,
-            ctypes.wintypes.WPARAM,
-            ctypes.wintypes.LPARAM
-        ]
-        user32.CallNextHookEx.restype = ctypes.wintypes.LPARAM
-
-        user32.SetWindowsHookExW.argtypes = [
-            ctypes.c_int,
-            CMPFUNC,
-            ctypes.wintypes.HINSTANCE,
-            ctypes.wintypes.DWORD
-        ]
-        user32.SetWindowsHookExW.restype = ctypes.wintypes.HHOOK
-
-        user32.UnhookWindowsHookEx.argtypes = [ctypes.wintypes.HHOOK]
-        user32.UnhookWindowsHookEx.restype = ctypes.wintypes.BOOL
-
-        user32.WindowFromPoint.argtypes = [POINT]
-        user32.WindowFromPoint.restype = ctypes.wintypes.HWND
-
-        user32.GetClassNameW.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.LPWSTR, ctypes.c_int]
-        user32.GetClassNameW.restype = ctypes.c_int
-
-        def hook_callback(nCode, wParam, lParam):
-            if nCode >= 0 and wParam == WM_LBUTTONDOWN:
-                try:
-                    ms = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT)).contents
-                    now = time.time()
-                    pos = (ms.pt.x, ms.pt.y)
-                    
-                    dt = now - self._last_click_time
-                    dx = abs(pos[0] - self._last_click_pos[0])
-                    dy = abs(pos[1] - self._last_click_pos[1])
-                    
-                    self._last_click_time = now
-                    self._last_click_pos = pos
-
-                    if dt <= double_click_time and dx <= 5 and dy <= 5:
-                        hwnd = user32.WindowFromPoint(ms.pt)
-                        if hwnd:
-                            buf = ctypes.create_unicode_buffer(256)
-                            user32.GetClassNameW(hwnd, buf, 256)
-                            cls_name = buf.value
-                            
-                            if cls_name in ("SysListView32", "Progman", "WorkerW"):
-                                self.double_clicked.emit()
-                except Exception:
-                    pass
-            return user32.CallNextHookEx(None, nCode, wParam, lParam)
-
-        self._hook_proc = CMPFUNC(hook_callback)
-        self.hook = user32.SetWindowsHookExW(WH_MOUSE_LL, self._hook_proc, None, 0)
-        
-        msg = ctypes.wintypes.MSG()
-        while self.running:
-            bRet = user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
-            if bRet == 0 or bRet == -1:
-                break
-            user32.TranslateMessage(ctypes.byref(msg))
-            user32.DispatchMessageW(ctypes.byref(msg))
-
-        if self.hook:
-            user32.UnhookWindowsHookEx(self.hook)
-            self.hook = None
+    def start(self):
+        self.timer.start()
 
     def stop(self):
-        self.running = False
-        user32 = ctypes.windll.user32
-        user32.PostQuitMessage(0)
+        self.timer.stop()
+
+    def _check_click(self):
+        try:
+            state = win32api.GetAsyncKeyState(0x01)
+            is_down = bool(state & 0x8000)
+
+            if is_down and not self._was_down:
+                now = time.time()
+                pos = win32gui.GetCursorPos()
+
+                double_click_time = win32gui.GetDoubleClickTime() / 1000.0
+                dt = now - self._last_click_time
+                dx = abs(pos[0] - self._last_click_pos[0])
+                dy = abs(pos[1] - self._last_click_pos[1])
+
+                self._last_click_time = now
+                self._last_click_pos = pos
+
+                if dt <= double_click_time and dx <= 6 and dy <= 6:
+                    hwnd = win32gui.WindowFromPoint(pos)
+                    if hwnd:
+                        cls_name = win32gui.GetClassName(hwnd)
+                        if cls_name in ("SysListView32", "Progman", "WorkerW"):
+                            self.double_clicked.emit()
+
+            self._was_down = is_down
+        except Exception:
+            pass
+
 
