@@ -11,7 +11,7 @@ from core.categorization import guess_category
 from core.worker import MoveWorker
 from ui.fence_widget import FenceWidget
 from ui.settings import SettingsDialog
-from utils.win32 import set_window_bottom, robust_move, set_desktop_icons_visible
+from utils.win32 import set_window_bottom, robust_move, set_desktop_icons_visible, DesktopDoubleCheckThread
 
 class FenceManager:
     def __init__(self, app):
@@ -46,6 +46,10 @@ class FenceManager:
         
         self.app.aboutToQuit.connect(self.on_quit)
         self.all_fences_visible = True
+        self.desktop_hook_thread = None
+        if self.config.get("double_click_hide", True):
+            self.start_desktop_hook()
+
         self.setup_tray_icon()
         self.load_all_fences()
 
@@ -318,17 +322,58 @@ class FenceManager:
             if getattr(fence, "is_virtual", False):
                 fence.load_files()
 
+    def start_desktop_hook(self):
+        if not self.desktop_hook_thread:
+            self.desktop_hook_thread = DesktopDoubleCheckThread(self.app)
+            self.desktop_hook_thread.double_clicked.connect(self.toggle_all_fences_visibility)
+            self.desktop_hook_thread.start()
+
+    def stop_desktop_hook(self):
+        if self.desktop_hook_thread:
+            self.desktop_hook_thread.stop()
+            self.desktop_hook_thread.wait()
+            self.desktop_hook_thread = None
+
     def update_opacity(self, opacity):
         self.config["opacity"] = opacity
         for fence in self.fences:
             fence.update()
         save_config(self.config)
-        
+
+    def update_corner_radius(self, radius):
+        self.config["corner_radius"] = radius
+        save_config(self.config)
+        for fence in self.fences:
+            fence.apply_theme()
+
+    def update_header_font_size(self, size):
+        self.config["header_font_size"] = size
+        save_config(self.config)
+        for fence in self.fences:
+            fence.apply_theme()
+
+    def update_lock_positions(self, locked):
+        self.config["lock_positions"] = locked
+        save_config(self.config)
+
+    def update_rollup_mode(self, enabled):
+        self.config["rollup_on_leave"] = enabled
+        save_config(self.config)
+
+    def update_double_click_hide(self, enabled):
+        self.config["double_click_hide"] = enabled
+        save_config(self.config)
+        if enabled:
+            self.start_desktop_hook()
+        else:
+            self.stop_desktop_hook()
+
     def open_settings(self):
         dlg = SettingsDialog(self)
         dlg.exec()
         
     def on_quit(self):
+        self.stop_desktop_hook()
         set_desktop_icons_visible(True)
         save_config(self.config)
         

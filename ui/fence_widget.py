@@ -150,14 +150,16 @@ class FenceWidget(QWidget):
 
     def apply_theme(self):
         self.list_widget.apply_theme("default")
-        self.label.setStyleSheet("""
+        radius = self.manager.config.get("corner_radius", 12)
+        font_size = self.manager.config.get("header_font_size", 14)
+        self.label.setStyleSheet(f"""
             color: #ffffff;
             font-weight: bold;
-            font-size: 14px;
-            font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+            font-size: {font_size}px;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
+            border-radius: {radius}px;
             padding: 4px 12px;
         """)
         if hasattr(self, 'border_timer'):
@@ -246,7 +248,7 @@ class FenceWidget(QWidget):
         
         opacity = self.manager.config.get("opacity", 64)
         rect = self.rect()
-        radius = 16.0
+        radius = float(self.manager.config.get("corner_radius", 12))
         
         # Deep Space Glassmorphism Background
         grad = QLinearGradient(0, 0, 0, rect.height())
@@ -326,6 +328,8 @@ class FenceWidget(QWidget):
                 self.list_widget.viewport().unsetCursor()
 
     def mousePressEvent(self, event):
+        if self.manager.config.get("lock_positions", False):
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             edges = self.get_resize_edges(event.pos())
             if edges:
@@ -369,6 +373,9 @@ class FenceWidget(QWidget):
         super().resizeEvent(event)
 
     def mouseMoveEvent(self, event):
+        if self.manager.config.get("lock_positions", False):
+            self.unsetCursor()
+            return
         if self._is_resizing:
             from PyQt6.QtCore import QRect
             diff = event.globalPosition().toPoint() - self._start_pos
@@ -425,6 +432,14 @@ class FenceWidget(QWidget):
             event.acceptProposedAction()
 
     def enterEvent(self, event):
+        if self.manager.config.get("rollup_on_leave", False) and getattr(self, "is_rolled_up", False):
+            self.is_rolled_up = False
+            fence_config = next((fc for fc in self.manager.config["fences"] if fc["id"] == self.fence_id), None)
+            target_h = fence_config.get("height", 400) if fence_config else 400
+            self.list_widget.setVisible(True)
+            self.resize(self.width(), target_h)
+            self.update()
+
         if self.is_collapsed:
             self.is_collapsed = False
             self.snap_edge = None
@@ -465,6 +480,14 @@ class FenceWidget(QWidget):
         if hasattr(self, 'list_widget'):
             self.list_widget.unsetCursor()
             self.list_widget.viewport().unsetCursor()
+
+        if self.manager.config.get("rollup_on_leave", False) and not getattr(self, "is_rolled_up", False):
+            if not self._is_resizing and not getattr(self, '_is_menu_open', False):
+                self.is_rolled_up = True
+                self.list_widget.setVisible(False)
+                self.resize(self.width(), 48)
+                self.update()
+                return
 
         if not self._is_tracking and not self._is_resizing and not getattr(self, '_is_menu_open', False):
             self.check_auto_hide()

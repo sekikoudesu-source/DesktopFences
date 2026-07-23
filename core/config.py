@@ -30,13 +30,27 @@ if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 def load_config():
+    defaults = {
+        "opacity": 150,
+        "theme": "default",
+        "corner_radius": 12,
+        "header_font_size": 14,
+        "double_click_hide": True,
+        "rollup_on_leave": False,
+        "lock_positions": False,
+        "fences": []
+    }
     if not os.path.exists(CONFIG_FILE):
-        return {"opacity": 150, "theme": "default", "fences": []}
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        cfg = json.load(f)
-        if "theme" not in cfg:
-            cfg["theme"] = "default"
-        return cfg
+        return defaults
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+            for k, v in defaults.items():
+                if k not in cfg:
+                    cfg[k] = v
+            return cfg
+    except Exception:
+        return defaults
 
 def save_config(config):
     with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
