@@ -82,6 +82,7 @@ class FenceWidget(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | 
             Qt.WindowType.Tool |
+            Qt.WindowType.WindowStaysOnBottomHint |
             Qt.WindowType.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)

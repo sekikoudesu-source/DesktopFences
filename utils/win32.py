@@ -44,7 +44,6 @@ def attach_to_desktop(hwnd):
 
 def set_window_bottom(hwnd):
     try:
-        attach_to_desktop(hwnd)
         win32gui.SetWindowPos(
             hwnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE

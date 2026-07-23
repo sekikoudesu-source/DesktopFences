@@ -1,7 +1,22 @@
 import sys
 import os
 import uuid
+import traceback
 from PyQt6.QtWidgets import QApplication
+
+def crash_handler(exctype, value, tb):
+    err_msg = "".join(traceback.format_exception(exctype, value, tb))
+    print("=== CRASH TRACEBACK ===", file=sys.stderr)
+    print(err_msg, file=sys.stderr)
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crash_log.txt")
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(err_msg)
+    except Exception:
+        pass
+    sys.__excepthook__(exctype, value, tb)
+
+sys.excepthook = crash_handler
 
 from core.config import save_config
 from ui.manager import FenceManager
