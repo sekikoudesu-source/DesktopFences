@@ -45,7 +45,11 @@ class FenceManager:
         self.bottom_timer.start()
         
         self.app.aboutToQuit.connect(self.on_quit)
-        
+        self.all_fences_visible = True
+        self.setup_tray_icon()
+        self.load_all_fences()
+
+    def setup_tray_icon(self):
         self.tray_icon = QSystemTrayIcon(self.app)
         icon_path = os.path.join(RES_DIR, "app_icon.ico")
         if os.path.exists(icon_path):
@@ -53,52 +57,124 @@ class FenceManager:
         else:
             from PyQt6.QtWidgets import QStyle
             self.tray_icon.setIcon(self.app.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
-        self.tray_icon.setToolTip("Fences V7 管理器")
-        
+        self.tray_icon.setToolTip("Fences V7 桌面收纳管理器")
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+
+        self.update_tray_menu()
+        self.tray_icon.show()
+
+    def update_tray_menu(self):
         menu = QMenu()
-        
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #1e222d;
+                color: #f0f3f8;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 10px;
+                padding: 6px;
+                font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+                font-size: 13px;
+            }
+            QMenu::item {
+                padding: 7px 24px 7px 14px;
+                border-radius: 6px;
+                margin: 2px 4px;
+            }
+            QMenu::item:selected {
+                background-color: #2b5c8f;
+                color: #ffffff;
+            }
+            QMenu::item:disabled {
+                color: #7a8499;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: rgba(255, 255, 255, 0.12);
+                margin: 5px 8px;
+            }
+        """)
+
+        # 头部标题标识
+        title_action = QAction("📦 DesktopFences V7", menu)
+        title_action.setEnabled(False)
+        menu.addAction(title_action)
+        menu.addSeparator()
+
+        # 智能整理核心功能
         auto_action = QAction("✨ 一键智能整理桌面", menu)
         auto_action.triggered.connect(self.auto_organize_desktop)
         menu.addAction(auto_action)
+
+        # 快速显隐所有收纳盒
+        all_visible = getattr(self, "all_fences_visible", True)
+        vis_text = "👁️ 隐藏所有收纳盒" if all_visible else "👁️ 显示所有收纳盒"
+        vis_action = QAction(vis_text, menu)
+        vis_action.triggered.connect(self.toggle_all_fences_visibility)
+        menu.addAction(vis_action)
+
+        menu.addSeparator()
+
+        # 新建收纳盒子菜单
+        new_menu = menu.addMenu("➕ 新建收纳盒")
+        new_menu.setStyleSheet(menu.styleSheet())
         
-        self.startup_action = QAction("🚀 开机自动启动", menu)
-        self.startup_action.setCheckable(True)
-        self.startup_action.setChecked(self.is_startup_enabled())
-        self.startup_action.triggered.connect(self.toggle_startup)
-        menu.addAction(self.startup_action)
-        
+        new_virt_action = QAction("📦 新建隐式收纳盒 (Virtual)", new_menu)
+        new_virt_action.triggered.connect(self.create_virtual_fence)
+        new_menu.addAction(new_virt_action)
+
+        new_map_action = QAction("📁 新建文件夹映射 (Portal)", new_menu)
+        new_map_action.triggered.connect(self.create_mapped_fence)
+        new_menu.addAction(new_map_action)
+
+        menu.addSeparator()
+
+        # 系统及桌面开关
         self.hide_icons_action = QAction("🕶️ 隐藏原生桌面图标", menu)
         self.hide_icons_action.setCheckable(True)
         self.hide_icons_action.setChecked(self.config.get("hide_desktop_icons", False))
         self.hide_icons_action.triggered.connect(self.toggle_hide_desktop_icons)
         menu.addAction(self.hide_icons_action)
-        
+
+        self.startup_action = QAction("🚀 开机自动启动", menu)
+        self.startup_action.setCheckable(True)
+        self.startup_action.setChecked(self.is_startup_enabled())
+        self.startup_action.triggered.connect(self.toggle_startup)
+        menu.addAction(self.startup_action)
+
         menu.addSeparator()
-        
-        new_virt_action = QAction("新建隐式收纳盒 (Virtual)", menu)
-        new_virt_action.triggered.connect(self.create_virtual_fence)
-        menu.addAction(new_virt_action)
-        
-        new_map_action = QAction("新建文件夹映射 (Portal)", menu)
-        new_map_action.triggered.connect(self.create_mapped_fence)
-        menu.addAction(new_map_action)
-        
-        menu.addSeparator()
-        
-        settings_action = QAction("设置面板 (Settings)", menu)
+
+        # 同步刷新与设置
+        refresh_action = QAction("🔄 刷新桌面文件同步", menu)
+        refresh_action.triggered.connect(self.reconcile_desktop_files)
+        menu.addAction(refresh_action)
+
+        settings_action = QAction("⚙️ 设置面板 (Settings)", menu)
         settings_action.triggered.connect(self.open_settings)
         menu.addAction(settings_action)
-        
+
         menu.addSeparator()
-        
-        exit_action = QAction("退出程序 (Exit)", menu)
+
+        # 退出程序
+        exit_action = QAction("❌ 退出程序 (Exit)", menu)
         exit_action.triggered.connect(self.app.quit)
         menu.addAction(exit_action)
-        
+
         self.tray_icon.setContextMenu(menu)
-        self.tray_icon.show()
-        
-        self.load_all_fences()
+
+    def toggle_all_fences_visibility(self):
+        self.all_fences_visible = not getattr(self, "all_fences_visible", True)
+        for fence in self.fences:
+            if self.all_fences_visible:
+                fence.show()
+                hwnd = int(fence.winId())
+                set_window_bottom(hwnd)
+            else:
+                fence.hide()
+        self.update_tray_menu()
+
+    def on_tray_icon_activated(self, reason):
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
+            self.toggle_all_fences_visibility()
 
     def change_global_theme(self, theme):
         self.config["theme"] = theme
