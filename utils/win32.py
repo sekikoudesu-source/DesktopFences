@@ -14,8 +14,37 @@ def robust_move(src, dst):
     shutil.move(src, dst)
 
 
+def get_desktop_workerw():
+    progman = win32gui.FindWindow("Progman", None)
+    if progman:
+        win32gui.SendMessageTimeout(progman, 0x052C, 0, 0, win32con.SMTO_NORMAL, 1000)
+    
+    workerw = None
+    def enum_windows_callback(hwnd, extra):
+        nonlocal workerw
+        shell_dll = win32gui.FindWindowEx(hwnd, 0, "SHELLDLL_DefView", None)
+        if shell_dll:
+            workerw = win32gui.FindWindowEx(0, hwnd, "WorkerW", None)
+        return True
+
+    win32gui.EnumWindows(enum_windows_callback, None)
+    if not workerw:
+        workerw = progman
+    return workerw
+
+
+def attach_to_desktop(hwnd):
+    try:
+        workerw = get_desktop_workerw()
+        if workerw:
+            win32gui.SetParent(hwnd, workerw)
+    except Exception as e:
+        print(f"Error attaching to desktop: {e}")
+
+
 def set_window_bottom(hwnd):
     try:
+        attach_to_desktop(hwnd)
         win32gui.SetWindowPos(
             hwnd, win32con.HWND_BOTTOM, 0, 0, 0, 0,
             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE

@@ -634,3 +634,17 @@ class FenceWidget(QWidget):
         if not self.particle_timer.isActive():
             self.particle_timer.start(16)
 
+    def nativeEvent(self, event_type, message):
+        import ctypes.wintypes
+        if event_type == b"windows_generic_MSG":
+            msg = ctypes.wintypes.MSG.from_address(message.__int__())
+            # Intercept WM_SHOWWINDOW (0x0018) hide command triggered by Win+D
+            if msg.message == 0x0018:
+                if msg.wParam == 0 and getattr(self.manager, "all_fences_visible", True):
+                    return True, 0
+            # Intercept SC_MINIMIZE (0xF020) command
+            elif msg.message == 0x0112 and (msg.wParam & 0xFFF0) == 0xF020:
+                return True, 0
+        return super().nativeEvent(event_type, message)
+
+
