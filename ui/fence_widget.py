@@ -13,6 +13,8 @@ from collections import OrderedDict
 
 ICON_CACHE = OrderedDict()
 MAX_CACHE_SIZE = 500
+from PyQt6.QtWidgets import QFileIconProvider
+SHARED_ICON_PROVIDER = QFileIconProvider()
 
 class Particle:
     def __init__(self, x, y, vx, vy, life, color, size):
@@ -83,7 +85,9 @@ class FenceWidget(QWidget):
             Qt.WindowType.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setGeometry(fence_config.get("x", 100), fence_config.get("y", 100), 
+        x = max(50, fence_config.get("x", 100))
+        y = max(50, fence_config.get("y", 100))
+        self.setGeometry(x, y, 
                          fence_config.get("width", 320), fence_config.get("height", 400))
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
@@ -107,6 +111,12 @@ class FenceWidget(QWidget):
         self.list_widget.itemDoubleClicked.connect(self.open_file)
         layout.addWidget(self.list_widget)
         
+        self.label.installEventFilter(self)
+        self.list_widget.setMouseTracking(True)
+        self.list_widget.viewport().setMouseTracking(True)
+        self.list_widget.installEventFilter(self)
+        self.list_widget.viewport().installEventFilter(self)
+        
         self.apply_theme()
         
         self.load_files()
@@ -125,6 +135,7 @@ class FenceWidget(QWidget):
         self._resize_edges = ""
         self._resize_start_geometry = None
         self._is_menu_open = False
+        self._last_particle_time = 0.0
 
         self.particles = []
         self.particle_timer = QTimer(self)
@@ -138,84 +149,28 @@ class FenceWidget(QWidget):
         self.expanded_pos = self.pos()
 
     def apply_theme(self):
-        theme = self.manager.config.get("theme", "default")
-        self.list_widget.apply_theme(theme)
-        
-        if theme == "cute":
-            self.label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; font-family: 'Comic Sans MS', sans-serif; background: transparent;")
-        elif theme == "aurora":
-            self.label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 16px; font-family: 'Segoe UI', sans-serif; background: transparent;")
-        elif theme == "mecha":
-            self.label.setStyleSheet("color: #ff6600; font-weight: 900; font-size: 16px; font-family: 'Arial Black', sans-serif; background: transparent; padding-left: 5px;")
-        elif theme == "cyberpunk":
-            self.border_timer.start(16)
-            self.label.setStyleSheet("color: #00ffff; font-weight: bold; font-size: 16px; font-family: 'Impact', sans-serif; background: transparent;")
-        elif theme == "holographic":
-            self.label.setStyleSheet("color: #00e5ff; font-weight: bold; font-size: 16px; font-family: 'Consolas', monospace; background: transparent;")
-        else:
-            self.label.setStyleSheet("color: white; font-weight: bold; font-size: 16px; background: transparent;")
-            
-        if theme != "cyberpunk":
+        self.list_widget.apply_theme("default")
+        self.label.setStyleSheet("""
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 14px;
+            font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 4px 12px;
+        """)
+        if hasattr(self, 'border_timer'):
             self.border_timer.stop()
-            
         self.update()
 
     def show_title_context_menu(self, pos):
         menu = QMenu(self)
-        theme = self.manager.config.get("theme", "default")
-        if theme == "aurora":
-            menu.setStyleSheet("""
-                QMenu { background-color: rgba(30, 10, 45, 0.9); color: white; border: 1px solid #7a28cb; border-radius: 8px; }
-                QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #4a0e4e; } 
-            """)
-        elif theme == "mecha":
-            menu.setStyleSheet("""
-                QMenu { background-color: #1a1a1a; color: #ff6600; border: 2px solid #ff6600; font-family: 'Arial Black'; font-weight: 900; }
-                QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #ff6600; color: #1a1a1a; } 
-            """)
-        elif theme == "cyberpunk":
-            menu.setStyleSheet("""
-                QMenu { background-color: #0b0b1a; color: #00ffff; border: 2px solid #ff00ff; font-family: 'Impact'; }
-                QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #ff00ff; color: #000000; } 
-            """)
-        elif theme == "holographic":
-            menu.setStyleSheet("""
-                QMenu { background-color: rgba(0, 20, 30, 0.9); color: #00e5ff; border: 1px solid #00e5ff; font-family: 'Consolas'; }
-                QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: rgba(0, 229, 255, 0.3); } 
-            """)
-        elif theme == "cute":
-            menu.setStyleSheet("""
-                QMenu { background-color: #f0f8ff; color: #66b2ff; border: 1px solid #a2d2ff; border-radius: 5px; }
-                QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #dbe9f4; } 
-            """)
-        else:
-            menu.setStyleSheet("""
-                QMenu { background-color: #2c2c2c; color: white; border: 1px solid #555; }
-                QMenu::item { padding: 5px 20px; }
-                QMenu::item:selected { background-color: #d73a49; } 
-            """)
-            
-        theme_menu = menu.addMenu("🎨 切换主题 (Themes)")
-        themes = {
-            "default": "默认风格 (Glassmorphism)",
-            "cute": "可爱风 (Cute)",
-            "aurora": "极光毛玻璃 (Aurora Glass)",
-            "mecha": "硬核机甲 (Sci-Fi Mecha)",
-            "cyberpunk": "赛博霓虹 (Cyberpunk Neon)",
-            "holographic": "全息投影 (Holographic HUD)"
-        }
-        for t_key, t_name in themes.items():
-            act = theme_menu.addAction(t_name)
-            act.setCheckable(True)
-            if theme == t_key:
-                act.setChecked(True)
-            act.triggered.connect(lambda checked, k=t_key: self.manager.change_global_theme(k))
-            
+        menu.setStyleSheet("""
+            QMenu { background-color: rgba(24, 28, 40, 0.95); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; }
+            QMenu::item { padding: 6px 20px; }
+            QMenu::item:selected { background-color: rgba(255, 255, 255, 0.15); } 
+        """)
         del_action = QAction("❌ 解散收纳盒 (Destroy)", self)
         del_action.triggered.connect(self.destroy_fence)
         menu.addAction(del_action)
@@ -249,7 +204,6 @@ class FenceWidget(QWidget):
         if not os.path.exists(self.folder_path): return
             
         self.list_widget.clear()
-        provider = QFileIconProvider()
         fm = self.list_widget.fontMetrics()
         
         if self.is_virtual:
@@ -268,7 +222,7 @@ class FenceWidget(QWidget):
             file_path = os.path.join(self.folder_path, filename)
             if not os.path.exists(file_path): continue
             
-            icon = get_icon_for_file(file_path, provider)
+            icon = get_icon_for_file(file_path, SHARED_ICON_PROVIDER)
             
             display_name = os.path.splitext(filename)[0]
             elided_text = fm.elidedText(display_name, Qt.TextElideMode.ElideMiddle, 75)
@@ -277,6 +231,9 @@ class FenceWidget(QWidget):
             item.setToolTip(filename)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.list_widget.addItem(item)
+            
+        count = self.list_widget.count()
+        self.label.setText(f"{self.title}  ·  {count}")
                 
     def open_file(self, item):
         file_path = os.path.join(self.folder_path, item.toolTip())
@@ -285,129 +242,28 @@ class FenceWidget(QWidget):
     def paintEvent(self, event):
         from PyQt6.QtGui import QPainter, QColor, QPen, QLinearGradient
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         
-        theme = self.manager.config.get("theme", "default")
         opacity = self.manager.config.get("opacity", 64)
         rect = self.rect()
+        radius = 16.0
         
-        if theme == "cute":
-            grad = QLinearGradient(0, 0, rect.width(), rect.height())
-            grad.setColorAt(0.0, QColor(162, 210, 255, opacity + 20))
-            grad.setColorAt(1.0, QColor(210, 235, 255, opacity + 20))
-            painter.setBrush(grad)
-            painter.setPen(QPen(QColor(130, 190, 255, 150), 2))
-            painter.drawRoundedRect(rect, 15.0, 15.0)
-        elif theme == "aurora":
-            grad = QLinearGradient(0, 0, rect.width(), rect.height())
-            grad.setColorAt(0.0, QColor(48, 12, 66, opacity + 40))   # Deep Purple
-            grad.setColorAt(0.5, QColor(25, 33, 76, opacity + 40))   # Midnight Blue
-            grad.setColorAt(1.0, QColor(10, 68, 89, opacity + 40))   # Deep Teal
-            painter.setBrush(grad)
-            painter.setPen(QPen(QColor(255, 255, 255, 80), 1))       # Soft white inner glow border
-            painter.drawRoundedRect(rect, 12.0, 12.0)
-            
-            # Subtle highlight on top edge
-            painter.setPen(QPen(QColor(255, 255, 255, 120), 1))
-            painter.drawLine(rect.left() + 12, rect.top(), rect.right() - 12, rect.top())
-
-        elif theme == "mecha":
-            from PyQt6.QtGui import QPainterPath
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter.setBrush(QColor(20, 20, 20, opacity + 60))
-            
-            # Draw industrial chamfered corners
-            path = QPainterPath()
-            cut = 20.0
-            path.moveTo(rect.left() + cut, rect.top())
-            path.lineTo(rect.right(), rect.top())
-            path.lineTo(rect.right(), rect.bottom() - cut)
-            path.lineTo(rect.right() - cut, rect.bottom())
-            path.lineTo(rect.left(), rect.bottom())
-            path.lineTo(rect.left(), rect.top() + cut)
-            path.closeSubpath()
-            
-            painter.setPen(QPen(QColor(255, 102, 0, 200), 2)) # Hazard Orange
-            painter.drawPath(path)
-            
-            # Draw subtle hazard stripes
-            painter.setBrush(QColor(255, 102, 0, 80))
-            painter.drawRect(rect.right() - 25, rect.top() + 5, 20, 10)
-
-        elif theme == "cyberpunk":
-            from PyQt6.QtGui import QPainterPath
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-            
-            # Solid Dark Cyberpunk Base
-            painter.setBrush(QColor(20, 20, 25, opacity + 100))
-            painter.setPen(Qt.PenStyle.NoPen)
-            
-            # Draw cyberpunk base with chopped bottom-right corner
-            path = QPainterPath()
-            cut = 30.0
-            path.moveTo(rect.left(), rect.top())
-            path.lineTo(rect.right(), rect.top())
-            path.lineTo(rect.right(), rect.bottom() - cut)
-            path.lineTo(rect.right() - cut, rect.bottom())
-            path.lineTo(rect.left(), rect.bottom())
-            path.closeSubpath()
-            painter.drawPath(path)
-            
-            # Animated RGB borders
-            import time
-            period_pixels = 300
-            offset = (time.time() * 60) % period_pixels
-            
-            border_grad = QLinearGradient(rect.left() - offset, rect.top() - offset, rect.right() - offset, rect.bottom() - offset)
-            border_grad.setSpread(QLinearGradient.Spread.RepeatSpread)
-            
-            border_grad.setColorAt(0.0, QColor("#ff00ff"))
-            border_grad.setColorAt(0.2, QColor("#00e5ff"))
-            border_grad.setColorAt(0.4, QColor("#39ff14"))
-            border_grad.setColorAt(0.6, QColor("#ff0055"))
-            border_grad.setColorAt(0.8, QColor("#fcee0a"))
-            border_grad.setColorAt(1.0, QColor("#ff00ff"))
-            
-            glow_pen = QPen(QBrush(border_grad), 6)
-            painter.setPen(glow_pen)
-            painter.drawPath(path)
-            
-            inner_pen = QPen(QBrush(border_grad), 2)
-            painter.setPen(inner_pen)
-            painter.drawPath(path)
-
-        elif theme == "holographic":
-            from PyQt6.QtGui import QPainterPath
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-            painter.setBrush(QColor(0, 15, 25, opacity + 60))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(rect, 15.0, 15.0)
-            
-            # Glow effect via multiple overlapping rounded rects
-            glow_colors = [
-                QColor(0, 229, 255, 20),
-                QColor(0, 229, 255, 60),
-                QColor(0, 229, 255, 120),
-                QColor(0, 229, 255, 255)
-            ]
-            for i, c in enumerate(glow_colors):
-                painter.setPen(QPen(c, 1))
-                # Adjust radius slightly for inner rects
-                painter.drawRoundedRect(rect.adjusted(i, i, -i, -i), max(0, 15.0 - i), max(0, 15.0 - i))
-            
-            # Draw scanlines overlay, clipped perfectly to the rounded corners
-            painter.save()
-            path = QPainterPath()
-            path.addRoundedRect(QRectF(rect), 15.0, 15.0)
-            painter.setClipPath(path)
-            painter.setPen(QPen(QColor(0, 229, 255, 15), 1))
-            for y in range(rect.top(), rect.bottom(), 4):
-                painter.drawLine(rect.left(), y, rect.right(), y)
-            painter.restore()
-        else: # default
-            painter.setBrush(QColor(0, 0, 0, opacity))
-            painter.setPen(QPen(QColor(255, 255, 255, 100), 1))
-            painter.drawRoundedRect(rect, 10.0, 10.0)
+        # Deep Space Glassmorphism Background
+        grad = QLinearGradient(0, 0, 0, rect.height())
+        grad.setColorAt(0.0, QColor(24, 28, 40, opacity + 80))
+        grad.setColorAt(1.0, QColor(12, 16, 26, opacity + 100))
+        painter.setBrush(grad)
+        
+        if self.underMouse():
+            border_pen = QPen(QColor(255, 255, 255, 140), 1.5)
+        else:
+            border_pen = QPen(QColor(255, 255, 255, 70), 1)
+        painter.setPen(border_pen)
+        painter.drawRoundedRect(rect, radius, radius)
+        
+        # Top specular highlight line
+        painter.setPen(QPen(QColor(255, 255, 255, 160), 1))
+        painter.drawLine(rect.left() + 16, rect.top() + 1, rect.right() - 16, rect.top() + 1)
         
         if self.is_collapsed and getattr(self, 'snap_edge', None):
             painter.setPen(QColor(255, 255, 255, 200))
@@ -440,24 +296,9 @@ class FenceWidget(QWidget):
             painter.setBrush(c)
             painter.setPen(Qt.PenStyle.NoPen)
             current_size = max(1.0, p.size * (p.life / p.max_life))
-            
-            theme = self.manager.config.get("theme", "default")
-            if theme == "aurora":
-                # Soft floating orbs
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-                painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
-            elif theme == "mecha":
-                # Industrial sparks
-                painter.setPen(QPen(c, 2))
-                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*2), int(p.y + current_size*2))
-            elif theme == "cyberpunk":
-                # Glitch particles
-                painter.setPen(QPen(c, 2))
-                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*3), int(p.y))
-            elif theme == "holographic":
-                # Digital matrix glitch lines
-                painter.setPen(QPen(c, 1))
-                painter.drawLine(int(p.x), int(p.y), int(p.x + current_size*4), int(p.y))
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.drawEllipse(QPointF(p.x, p.y), current_size, current_size)
+
 
 
     def get_resize_edges(self, pos):
@@ -480,6 +321,9 @@ class FenceWidget(QWidget):
             self.setCursor(Qt.CursorShape.SizeVerCursor)
         else:
             self.unsetCursor()
+            if hasattr(self, 'list_widget'):
+                self.list_widget.unsetCursor()
+                self.list_widget.viewport().unsetCursor()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -541,7 +385,9 @@ class FenceWidget(QWidget):
             self.setGeometry(rect)
             return
 
-        if not self.is_collapsed and not self._is_resizing and random.random() < 0.3:
+        now = time.time()
+        if not self.is_collapsed and not self._is_resizing and (now - self._last_particle_time > 0.04):
+            self._last_particle_time = now
             self.emit_stardust(event.pos())
 
         edges = self.get_resize_edges(event.pos())
@@ -587,6 +433,27 @@ class FenceWidget(QWidget):
             self.animation.start()
             self.update()
 
+    def eventFilter(self, watched, event):
+        from PyQt6.QtCore import QEvent
+        if event.type() == QEvent.Type.MouseMove:
+            if watched in (self.list_widget, self.list_widget.viewport(), self.label):
+                if self.cursor().shape() != Qt.CursorShape.ArrowCursor:
+                    self.unsetCursor()
+                    if hasattr(self, 'list_widget'):
+                        self.list_widget.unsetCursor()
+                        self.list_widget.viewport().unsetCursor()
+                
+                now = time.time()
+                if not self.is_collapsed and not self._is_resizing and (now - self._last_particle_time > 0.04):
+                    self._last_particle_time = now
+                    if hasattr(watched, 'mapTo'):
+                        pos_in_fence = watched.mapTo(self, event.pos())
+                    else:
+                        pos_in_fence = event.pos()
+                    self.emit_stardust(pos_in_fence)
+                    
+        return super().eventFilter(watched, event)
+
     def leaveEvent(self, event):
         from PyQt6.QtGui import QCursor
         # Windows translucent hit-testing might falsely report the mouse leaving 
@@ -594,6 +461,11 @@ class FenceWidget(QWidget):
         if self.geometry().contains(QCursor.pos()):
             return
             
+        self.unsetCursor()
+        if hasattr(self, 'list_widget'):
+            self.list_widget.unsetCursor()
+            self.list_widget.viewport().unsetCursor()
+
         if not self._is_tracking and not self._is_resizing and not getattr(self, '_is_menu_open', False):
             self.check_auto_hide()
             
@@ -677,6 +549,11 @@ class FenceWidget(QWidget):
             self.update()
 
     def update_particles(self):
+        if self.is_collapsed:
+            self.particles.clear()
+            self.particle_timer.stop()
+            return
+
         if not self.particles:
             self.particle_timer.stop()
             return

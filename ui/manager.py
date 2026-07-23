@@ -29,7 +29,7 @@ class FenceManager:
         self.reconcile_timer = QTimer(self.app)
         self.reconcile_timer.setSingleShot(True)
         self.reconcile_timer.timeout.connect(self.reconcile_desktop_files)
-        self.desktop_watcher.directoryChanged.connect(lambda: self.reconcile_timer.start(200))
+        self.desktop_watcher.directoryChanged.connect(lambda: self.reconcile_timer.start(350))
         
         # Perform initial sync
         self.reconcile_desktop_files()
@@ -40,7 +40,7 @@ class FenceManager:
             
         # Setup bottom alignment timer to keep fences below other windows on boot / Win+D
         self.bottom_timer = QTimer(self.app)
-        self.bottom_timer.setInterval(2000)
+        self.bottom_timer.setInterval(5000)
         self.bottom_timer.timeout.connect(self.keep_fences_at_bottom)
         self.bottom_timer.start()
         

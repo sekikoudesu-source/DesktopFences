@@ -77,60 +77,37 @@ class FenceListWidget(QListWidget):
         
         self.apply_theme("default")
 
-    def apply_theme(self, theme):
-        if theme == "cute":
-            color = "#ffffff"
-            selected_bg = "rgba(162, 210, 255, 80)"
-            hover_bg = "rgba(162, 210, 255, 40)"
-            radius = "12px"
-        elif theme == "aurora":
-            color = "#ffffff" 
-            selected_bg = "rgba(122, 40, 203, 80)" # Vibrant purple selection
-            hover_bg = "rgba(122, 40, 203, 40)"
-            radius = "8px"
-        elif theme == "mecha":
-            color = "#ffffff" 
-            selected_bg = "rgba(255, 102, 0, 80)" # Hazard orange selection
-            hover_bg = "rgba(255, 102, 0, 40)"
-            radius = "0px"
-        elif theme == "cyberpunk":
-            color = "transparent" # Hide default text to allow custom NeonTextDelegate drawing
-            selected_bg = "rgba(255, 0, 85, 80)" # Neon pink selection
-            hover_bg = "rgba(0, 229, 255, 40)" # Neon cyan hover
-            radius = "0px"
-        elif theme == "holographic":
-            color = "#00e5ff" # Electric blue text
-            selected_bg = "rgba(0, 229, 255, 40)"
-            hover_bg = "rgba(0, 229, 255, 20)"
-            radius = "2px"
-        else: # default
-            color = "white"
-            selected_bg = "rgba(255, 255, 255, 60)"
-            hover_bg = "rgba(255, 255, 255, 30)"
-            radius = "5px"
+    def apply_theme(self, theme="default"):
+        color = "#ffffff"
+        selected_bg = "rgba(255, 255, 255, 0.25)"
+        hover_bg = "rgba(255, 255, 255, 0.14)"
+        hover_border = "1px solid rgba(255, 255, 255, 0.35)"
+        radius = "8px"
 
         self.setStyleSheet(f"""
             QListWidget {{
                 background: transparent;
                 border: none;
                 color: {color};
+                padding: 4px;
             }}
             QListWidget::item {{
                 border-radius: {radius};
+                padding: 4px;
+                border: 1px solid transparent;
             }}
             QListWidget::item:selected {{
                 background: {selected_bg};
+                border: {hover_border};
             }}
             QListWidget::item:hover {{
                 background: {hover_bg};
+                border: {hover_border};
             }}
         """)
-        
-        self.current_theme = theme
-        if theme == "cyberpunk":
-            self.animation_timer.start(16) # ~60 FPS
-        else:
-            self.animation_timer.stop()
+        self.current_theme = "default"
+
+
 
     def show_context_menu(self, pos):
         item = self.itemAt(pos)
