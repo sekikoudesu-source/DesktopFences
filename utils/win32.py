@@ -154,6 +154,31 @@ class DesktopDoubleCheckThread(QThread):
         WM_LBUTTONDOWN = 0x0201
         double_click_time = user32.GetDoubleClickTime() / 1000.0
 
+        user32.CallNextHookEx.argtypes = [
+            ctypes.wintypes.HHOOK,
+            ctypes.c_int,
+            ctypes.wintypes.WPARAM,
+            ctypes.wintypes.LPARAM
+        ]
+        user32.CallNextHookEx.restype = ctypes.wintypes.LPARAM
+
+        user32.SetWindowsHookExW.argtypes = [
+            ctypes.c_int,
+            CMPFUNC,
+            ctypes.wintypes.HINSTANCE,
+            ctypes.wintypes.DWORD
+        ]
+        user32.SetWindowsHookExW.restype = ctypes.wintypes.HHOOK
+
+        user32.UnhookWindowsHookEx.argtypes = [ctypes.wintypes.HHOOK]
+        user32.UnhookWindowsHookEx.restype = ctypes.wintypes.BOOL
+
+        user32.WindowFromPoint.argtypes = [POINT]
+        user32.WindowFromPoint.restype = ctypes.wintypes.HWND
+
+        user32.GetClassNameW.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.LPWSTR, ctypes.c_int]
+        user32.GetClassNameW.restype = ctypes.c_int
+
         def hook_callback(nCode, wParam, lParam):
             if nCode >= 0 and wParam == WM_LBUTTONDOWN:
                 try:
@@ -179,7 +204,7 @@ class DesktopDoubleCheckThread(QThread):
                                 self.double_clicked.emit()
                 except Exception:
                     pass
-            return user32.CallNextHookEx(self.hook, nCode, wParam, lParam)
+            return user32.CallNextHookEx(None, nCode, wParam, lParam)
 
         self._hook_proc = CMPFUNC(hook_callback)
         self.hook = user32.SetWindowsHookExW(WH_MOUSE_LL, self._hook_proc, None, 0)
