@@ -86,12 +86,10 @@ class FenceWidget(QWidget):
             Qt.WindowType.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        x = fence_config.get("x", 100)
-        y = fence_config.get("y", 100)
-        w = fence_config.get("width", 320)
-        h = fence_config.get("height", 400)
-        self.expanded_pos = QPoint(x, y)
-        self.setGeometry(x, y, w, h)
+        x = max(50, fence_config.get("x", 100))
+        y = max(50, fence_config.get("y", 100))
+        self.setGeometry(x, y, 
+                         fence_config.get("width", 320), fence_config.get("height", 400))
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
         
@@ -357,8 +355,6 @@ class FenceWidget(QWidget):
 
     def moveEvent(self, event):
         super().moveEvent(event)
-        if not getattr(self, 'is_collapsed', False):
-            self.expanded_pos = self.pos()
         if hasattr(self, '_drag_timer'):
             self._drag_timer.start(300)
             
@@ -367,8 +363,7 @@ class FenceWidget(QWidget):
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
         
-        if not self.is_collapsed:
-            self.expanded_pos = self.pos()
+        self.expanded_pos = self.pos()
         self.save_position()
         from PyQt6.QtGui import QCursor
         # Do not immediately hide if the user's mouse is still inside the widget after dropping it
@@ -413,11 +408,10 @@ class FenceWidget(QWidget):
                 self.save_position()
             
     def save_position(self):
-        pos = getattr(self, 'expanded_pos', self.pos())
         for f in self.manager.config["fences"]:
             if f["id"] == self.fence_id:
-                f["x"] = pos.x()
-                f["y"] = pos.y()
+                f["x"] = self.x()
+                f["y"] = self.y()
                 f["width"] = self.width()
                 f["height"] = self.height()
                 save_config(self.manager.config)

@@ -374,11 +374,6 @@ class FenceManager:
     def on_quit(self):
         self.stop_desktop_hook()
         set_desktop_icons_visible(True)
-        for fence in self.fences:
-            try:
-                fence.save_position()
-            except Exception:
-                pass
         save_config(self.config)
         
     def toggle_hide_desktop_icons(self, checked):
