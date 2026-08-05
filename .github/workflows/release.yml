@@ -22,7 +22,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install PyQt6 pyinstaller
+          pip install PyQt6 pyinstaller pywin32
           # Add any other missing dependencies here if needed
           
       - name: Build Executable with PyInstaller
