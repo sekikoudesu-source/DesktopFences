@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QSystemTrayIcon, QMenu, QFileDialog, QInputDialog, Q
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import Qt, QTimer, QFileSystemWatcher
 
+from core.i18n import _
 from core.config import load_config, save_config, load_restore_map, save_restore_map, DATA_DIR, BASE_DIR, RES_DIR, get_desktop_dir
 from core.categorization import guess_category
 from core.worker import MoveWorker
@@ -61,7 +62,7 @@ class FenceManager:
         else:
             from PyQt6.QtWidgets import QStyle
             self.tray_icon.setIcon(self.app.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon))
-        self.tray_icon.setToolTip("Fences V7 桌面收纳管理器")
+        self.tray_icon.setToolTip(_("Fences V7 桌面收纳管理器"))
         self.tray_icon.activated.connect(self.on_tray_icon_activated)
 
         self.update_tray_menu()
@@ -105,13 +106,13 @@ class FenceManager:
         menu.addSeparator()
 
         # 智能整理核心功能
-        auto_action = QAction("✨ 一键智能整理桌面", menu)
+        auto_action = QAction(_("✨ 一键智能整理桌面"), menu)
         auto_action.triggered.connect(self.auto_organize_desktop)
         menu.addAction(auto_action)
 
         # 快速显隐所有收纳盒
         all_visible = getattr(self, "all_fences_visible", True)
-        vis_text = "👁️ 隐藏所有收纳盒" if all_visible else "👁️ 显示所有收纳盒"
+        vis_text = _("👁️ 隐藏所有收纳盒") if all_visible else _("👁️ 显示所有收纳盒")
         vis_action = QAction(vis_text, menu)
         vis_action.triggered.connect(self.toggle_all_fences_visibility)
         menu.addAction(vis_action)
@@ -119,27 +120,27 @@ class FenceManager:
         menu.addSeparator()
 
         # 新建收纳盒子菜单
-        new_menu = menu.addMenu("➕ 新建收纳盒")
+        new_menu = menu.addMenu(_("➕ 新建收纳盒"))
         new_menu.setStyleSheet(menu.styleSheet())
         
-        new_virt_action = QAction("📦 新建隐式收纳盒 (Virtual)", new_menu)
+        new_virt_action = QAction(_("📦 新建隐式收纳盒 (Virtual)"), new_menu)
         new_virt_action.triggered.connect(self.create_virtual_fence)
         new_menu.addAction(new_virt_action)
 
-        new_map_action = QAction("📁 新建文件夹映射 (Portal)", new_menu)
+        new_map_action = QAction(_("📁 新建文件夹映射 (Portal)"), new_menu)
         new_map_action.triggered.connect(self.create_mapped_fence)
         new_menu.addAction(new_map_action)
 
         menu.addSeparator()
 
         # 系统及桌面开关
-        self.hide_icons_action = QAction("🕶️ 隐藏原生桌面图标", menu)
+        self.hide_icons_action = QAction(_("🕶️ 隐藏原生桌面图标"), menu)
         self.hide_icons_action.setCheckable(True)
         self.hide_icons_action.setChecked(self.config.get("hide_desktop_icons", False))
         self.hide_icons_action.triggered.connect(self.toggle_hide_desktop_icons)
         menu.addAction(self.hide_icons_action)
 
-        self.startup_action = QAction("🚀 开机自动启动", menu)
+        self.startup_action = QAction(_("🚀 开机自动启动"), menu)
         self.startup_action.setCheckable(True)
         self.startup_action.setChecked(self.is_startup_enabled())
         self.startup_action.triggered.connect(self.toggle_startup)
@@ -148,18 +149,18 @@ class FenceManager:
         menu.addSeparator()
 
         # 同步刷新与设置
-        refresh_action = QAction("🔄 刷新桌面文件同步", menu)
+        refresh_action = QAction(_("🔄 刷新桌面文件同步"), menu)
         refresh_action.triggered.connect(self.reconcile_desktop_files)
         menu.addAction(refresh_action)
 
-        settings_action = QAction("⚙️ 设置面板 (Settings)", menu)
+        settings_action = QAction(_("⚙️ 设置面板 (Settings)"), menu)
         settings_action.triggered.connect(self.open_settings)
         menu.addAction(settings_action)
 
         menu.addSeparator()
 
         # 退出程序
-        exit_action = QAction("❌ 退出程序 (Exit)", menu)
+        exit_action = QAction(_("❌ 退出程序 (Exit)"), menu)
         exit_action.triggered.connect(self.app.quit)
         menu.addAction(exit_action)
 
@@ -180,12 +181,6 @@ class FenceManager:
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
             self.toggle_all_fences_visibility()
 
-    def change_global_theme(self, theme):
-        self.config["theme"] = theme
-        save_config(self.config)
-        for fence in self.fences:
-            fence.apply_theme()
-
     def migrate_old_physical_strategy(self):
         config_changed = False
         for fc in self.config.get("fences", []):
@@ -204,7 +199,7 @@ class FenceManager:
                 config_changed = True
 
         if self.restore_map:
-            print("发现旧版本的物理整理映射表，正在进行迁移恢复...")
+            print(_("发现旧版本的物理整理映射表，正在进行迁移恢复..."))
             for v_path, orig_path in list(self.restore_map.items()):
                 filename = os.path.basename(orig_path)
                 parent_dir = os.path.dirname(v_path)
@@ -237,7 +232,7 @@ class FenceManager:
                 if os.path.exists(DATA_DIR):
                     shutil.rmtree(DATA_DIR)
             except Exception as e:
-                print(f"清理临时目录失败: {e}")
+                pass
                 
         if config_changed:
             save_config(self.config)
@@ -256,7 +251,7 @@ class FenceManager:
                     continue
                 desktop_files.append(name)
         except Exception as e:
-            print(f"扫描桌面文件失败: {e}")
+            pass
             return
 
         registered_files = set()
@@ -278,7 +273,7 @@ class FenceManager:
                     
                 registered_files.update(fc["files"])
                 
-                if fc.get("id") == "unclassified_fence" or fc.get("title") == "未分类 (Unclassified)":
+                if fc.get("id") == "unclassified_fence" or fc.get("title") == _("未分类 (Unclassified)"):
                     unclassified_fence = fc
 
         # Find unregistered files on desktop
@@ -295,7 +290,7 @@ class FenceManager:
                     y = 50 + (count // 4) * 450
                     unclassified_fence = {
                         "id": unclassified_id,
-                        "title": "未分类 (Unclassified)",
+                        "title": _("未分类 (Unclassified)"),
                         "path": "virtual",
                         "is_virtual": True,
                         "files": [],
@@ -345,12 +340,6 @@ class FenceManager:
         for fence in self.fences:
             fence.apply_theme()
 
-    def update_header_font_size(self, size):
-        self.config["header_font_size"] = size
-        save_config(self.config)
-        for fence in self.fences:
-            fence.apply_theme()
-
     def update_lock_positions(self, locked):
         self.config["lock_positions"] = locked
         save_config(self.config)
@@ -374,6 +363,11 @@ class FenceManager:
     def on_quit(self):
         self.stop_desktop_hook()
         set_desktop_icons_visible(True)
+        for fence in self.fences:
+            try:
+                fence.save_position()
+            except Exception:
+                pass
         save_config(self.config)
         
     def toggle_hide_desktop_icons(self, checked):
@@ -397,7 +391,7 @@ class FenceManager:
         # 2. Get list of files in the "未分类" fence
         unclassified_fence = next((fc for fc in self.config.get("fences", []) if fc["id"] == "unclassified_fence"), None)
         if not unclassified_fence or not unclassified_fence.get("files"):
-            QMessageBox.information(None, "提示", "桌面上没有发现未分类的文件！")
+            QMessageBox.information(None, _("提示"), _("桌面上没有发现未分类的文件！"))
             return
             
         files_to_organize = list(unclassified_fence["files"])
@@ -452,7 +446,7 @@ class FenceManager:
             if getattr(fence, "is_virtual", False):
                 fence.load_files()
                 
-        QMessageBox.information(None, "完成", "🎉 桌面一键深度拆解整理完成！")
+        QMessageBox.information(None, _("完成"), _("🎉 桌面一键深度拆解整理完成！"))
 
     def load_all_fences(self):
         spawned_ids = {f.fence_id for f in self.fences}
@@ -483,13 +477,13 @@ class FenceManager:
                     main_py = os.path.join(BASE_DIR, "main.py")
                     cmd = f'"{python_exe}" "{main_py}"'
                 winreg.SetValueEx(key, "DesktopFences", 0, winreg.REG_SZ, cmd)
-                QMessageBox.information(None, "设置成功", "已开启开机自启！\n下次开机时，收纳盒将在后台静默自动运行。")
+                QMessageBox.information(None, _("设置成功"), _("已开启开机自启！\n下次开机时，收纳盒将在后台静默自动运行。"))
             else:
                 winreg.DeleteValue(key, "DesktopFences")
-                QMessageBox.information(None, "设置成功", "已关闭开机自启！")
+                QMessageBox.information(None, _("设置成功"), _("已取消开机自启！"))
             winreg.CloseKey(key)
         except Exception as e:
-            QMessageBox.warning(None, "错误", f"设置开机启动失败:\n{e}")
+            QMessageBox.warning(None, _("错误"), f"设置开机启动失败:\n{e}")
             self.startup_action.setChecked(not checked)
 
     def _spawn_fence_widget(self, fc):
@@ -500,7 +494,7 @@ class FenceManager:
         self.fences.append(fence)
 
     def create_virtual_fence(self):
-        title, ok = QInputDialog.getText(None, "虚拟收纳盒", "请输入收纳盒名称:")
+        title, ok = QInputDialog.getText(None, _("提示"), _("输入新名称:"))
         if ok and title:
             fence_id = str(uuid.uuid4())
             fc = {
@@ -519,7 +513,7 @@ class FenceManager:
             self._spawn_fence_widget(fc)
 
     def create_mapped_fence(self):
-        folder = QFileDialog.getExistingDirectory(None, "选择要映射在桌面的文件夹")
+        folder = QFileDialog.getExistingDirectory(None, _("选择映射文件夹"))
         if folder:
             title = "📁 " + os.path.basename(folder)
             fc = {

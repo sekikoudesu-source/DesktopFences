@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DesktopFences - AI Virtual Desktop Organizer</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <nav class="glass-nav">
+      <div class="nav-content">
+        <div class="logo">
+          DesktopFences
+        </div>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#specs">Specifications</a>
+          <a href="https://github.com/sekikoudesu-source/DesktopFences" target="_blank">Source</a>
+          <a href="#download" class="btn btn-accent btn-sm">Download</a>
+        </div>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero container" id="home">
+        <div class="hero-content">
+          <h1 class="fade-up">
+            Intelligent Desktop Organization.
+          </h1>
+          <p class="hero-subtitle fade-up">
+            An ultra-lightweight, visually stunning virtual desktop organizer. Keep your workspace distraction-free and instantly accessible without moving a single file.
+          </p>
+          <div class="hero-actions fade-up">
+            <a href="#download" class="btn btn-primary">Download V12</a>
+            <a href="#features" class="btn btn-secondary">Explore Features</a>
+          </div>
+        </div>
+        <div class="hero-visual fade-up">
+          <img src="./public/hero-preview.png" alt="DesktopFences Interface Preview">
+        </div>
+      </section>
+
+      <section class="features container" id="features">
+        <div class="section-header fade-up">
+          <h2>Engineered for Clarity</h2>
+          <p>Everything you need to maintain focus, wrapped in a pure native UI.</p>
+        </div>
+        
+        <div class="bento-grid">
+          <div class="bento-cell glass-panel cell-large fade-up">
+            <h3>AI-Powered Categorization</h3>
+            <p>One-click auto-organization. Files, games, and documents are instantly analyzed and routed into smart fences.</p>
+          </div>
+          
+          <div class="bento-cell glass-panel cell-medium fade-up">
+            <h3>Edge Snapping</h3>
+            <p>Drag a fence to the edge, and it collapses elegantly out of sight.</p>
+          </div>
+          
+          <div class="bento-cell glass-panel cell-medium fade-up">
+            <h3>Liquid Glass UI</h3>
+            <p>Translucent, borderless windows with zero-latency drag-and-drop support.</p>
+          </div>
+          
+          <div class="bento-cell glass-panel cell-large fade-up">
+            <h3>Zero Dependencies</h3>
+            <p>Compiled into a single, portable executable. No background bloatware.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="specs-section" id="specs">
+        <div class="container" style="padding-top: 120px; padding-bottom: 120px;">
+          <div class="section-header fade-up">
+            <h2>The V12 Architecture</h2>
+            <p>Performance metrics and core capabilities of the new engine.</p>
+          </div>
+          <div class="specs-grid fade-up">
+            <div class="spec-card">
+              <div class="stat">< 10ms</div>
+              <div class="label">Drag & Drop Latency</div>
+            </div>
+            <div class="spec-card">
+              <div class="stat">0</div>
+              <div class="label">Files Physically Moved</div>
+            </div>
+            <div class="spec-card">
+              <div class="stat">Native</div>
+              <div class="label">Win32 API Integration</div>
+            </div>
+            <div class="spec-card">
+              <div class="stat">1.2MB</div>
+              <div class="label">Memory Footprint</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bottom-cta" id="download">
+        <div class="container fade-up">
+          <h2>Experience the Purest Desktop.</h2>
+          <div style="margin-top: 32px; display: flex; gap: 16px; justify-content: center;">
+            <a href="https://github.com/sekikoudesu-source/DesktopFences/releases/latest" target="_blank" class="btn btn-primary">Download for Windows</a>
+            <a href="https://github.com/sekikoudesu-source/DesktopFences" target="_blank" class="btn btn-secondary">View on GitHub</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="container">
+      <div class="site-footer">
+        <span>© 2026 DesktopFences Contributors</span>
+        <span>Open Source under MIT</span>
+      </div>
+    </footer>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

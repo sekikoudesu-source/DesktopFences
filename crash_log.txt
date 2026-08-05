@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "d:\PythonProject\desktop_fences\utils\win32.py", line 140, in _check_click
+    def _check_click(self):
+    
+KeyboardInterrupt

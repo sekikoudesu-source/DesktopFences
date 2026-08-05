@@ -38,6 +38,7 @@ def load_config():
         "double_click_hide": True,
         "rollup_on_leave": False,
         "lock_positions": False,
+        "language": "zh_CN",
         "fences": []
     }
     if not os.path.exists(CONFIG_FILE):

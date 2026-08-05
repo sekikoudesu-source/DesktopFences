@@ -18,12 +18,18 @@ def crash_handler(exctype, value, tb):
 
 sys.excepthook = crash_handler
 
-from core.config import save_config
+from core.config import save_config, load_config
+from core.i18n import set_language
 from ui.manager import FenceManager
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    
+    # Initialize language before UI
+    config = load_config()
+    set_language(config.get("language", "zh_CN"))
+    
     manager = FenceManager(app)
     
     if not manager.config["fences"]:

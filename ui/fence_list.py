@@ -6,6 +6,8 @@ from PyQt6.QtCore import Qt, QSize, QFileInfo, QMimeData, QUrl, QTimer
 from PyQt6.QtGui import QAction, QDrag, QIcon, QBrush, QColor
 import random
 
+from core.i18n import _
+
 from core.config import save_restore_map, save_config
 from utils.win32 import robust_move, open_file_safely
 
@@ -78,31 +80,27 @@ class FenceListWidget(QListWidget):
         self.apply_theme("default")
 
     def apply_theme(self, theme="default"):
-        color = "#ffffff"
-        selected_bg = "rgba(255, 255, 255, 0.25)"
-        hover_bg = "rgba(255, 255, 255, 0.14)"
-        hover_border = "1px solid rgba(255, 255, 255, 0.35)"
-        radius = "8px"
-
         self.setStyleSheet(f"""
             QListWidget {{
                 background: transparent;
                 border: none;
-                color: {color};
-                padding: 4px;
+                color: rgba(255, 255, 255, 0.9);
+                padding: 2px;
+                outline: none;
             }}
             QListWidget::item {{
-                border-radius: {radius};
-                padding: 4px;
+                border-radius: 10px;
+                padding: 6px;
                 border: 1px solid transparent;
+                margin: 2px;
             }}
             QListWidget::item:selected {{
-                background: {selected_bg};
-                border: {hover_border};
+                background: rgba(255, 255, 255, 0.12);
+                border: 1px solid rgba(255, 255, 255, 0.18);
             }}
-            QListWidget::item:hover {{
-                background: {hover_bg};
-                border: {hover_border};
+            QListWidget::item:hover:!selected {{
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.1);
             }}
         """)
         self.current_theme = "default"
@@ -119,26 +117,26 @@ class FenceListWidget(QListWidget):
             
         menu = QMenu(self)
         menu.setStyleSheet("""
-            QMenu { background-color: #2c2c2c; color: white; border: 1px solid #555; }
-            QMenu::item { padding: 5px 20px; }
-            QMenu::item:selected { background-color: #0078d7; }
+            QMenu { background-color: rgba(20, 20, 22, 0.95); color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; }
+            QMenu::item { padding: 6px 24px; border-radius: 4px; margin: 2px 4px; }
+            QMenu::item:selected { background-color: rgba(255, 255, 255, 0.1); }
         """)
         
-        open_action = QAction("打开 (Open)", self)
+        open_action = QAction(_("打开 (Open)"), self)
         open_action.triggered.connect(lambda: open_file_safely(os.path.join(self.folder_path, item.toolTip())))
         menu.addAction(open_action)
         
-        show_action = QAction("在文件夹中显示 (Show in Explorer)", self)
+        show_action = QAction(_("在文件夹中显示 (Show in Explorer)"), self)
         show_action.triggered.connect(lambda: subprocess.run(['explorer', '/select,', os.path.normpath(os.path.join(self.folder_path, item.toolTip()))]))
         menu.addAction(show_action)
         
         menu.addSeparator()
         
-        ren_action = QAction("重命名 (Rename)", self)
+        ren_action = QAction(_("重命名 (Rename)"), self)
         ren_action.triggered.connect(lambda: self.rename_item(item))
         menu.addAction(ren_action)
         
-        del_action = QAction("删除 (Delete)", self)
+        del_action = QAction(_("删除 (Delete)"), self)
         del_action.triggered.connect(lambda: self.delete_item(item))
         menu.addAction(del_action)
         
@@ -152,7 +150,7 @@ class FenceListWidget(QListWidget):
         
     def rename_item(self, item):
         old_name = item.toolTip()
-        new_name, ok = QInputDialog.getText(self, "重命名", "输入新文件名:", text=old_name)
+        new_name, ok = QInputDialog.getText(self, _("重命名"), _("输入新文件名:"), text=old_name)
         if ok and new_name and new_name != old_name:
             old_path = os.path.join(self.folder_path, old_name)
             new_path = os.path.join(self.folder_path, new_name)
@@ -173,15 +171,15 @@ class FenceListWidget(QListWidget):
                         save_config(manager.config)
                     parent_widget.load_files()
             except Exception as e:
-                QMessageBox.warning(self, "错误", f"重命名失败:\n{e}")
+                QMessageBox.warning(self, _("错误"), _("重命名失败:\n{e}").format(e=e))
 
     def delete_item(self, item):
         filename = item.toolTip()
         file_path = os.path.join(self.folder_path, filename)
         is_dir = os.path.isdir(file_path)
-        type_str = "文件夹" if is_dir else "文件"
+        type_str = _("文件夹") if is_dir else _("文件")
         
-        reply = QMessageBox.question(self, "确认删除", f"确定要永久删除{type_str} {filename} 吗？\n(此操作将直接删除该{type_str})", 
+        reply = QMessageBox.question(self, _("确认删除"), _("确定要永久删除{type_str} {filename} 吗？\n(此操作将直接删除该{type_str})").format(type_str=type_str, filename=filename), 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             try:
@@ -200,7 +198,7 @@ class FenceListWidget(QListWidget):
                         save_config(manager.config)
                     parent_widget.load_files()
             except Exception as e:
-                QMessageBox.warning(self, "错误", f"删除失败:\n{e}")
+                QMessageBox.warning(self, _("错误"), _("删除失败:\n{e}").format(e=e))
 
     def startDrag(self, supportedActions):
         items = self.selectedItems()
